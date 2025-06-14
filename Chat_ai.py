@@ -21,7 +21,7 @@ class ChatBot:
         self.Label.pack(padx=10, pady= 10)
 
         # Create chat window
-        self.chat_window = scrolledtext.ScrolledText(self.root, width=100, height=26, font=("Arial", 12), bg="#f0f0f0", fg="#000000")
+        self.chat_window = scrolledtext.ScrolledText(self.root, width=100, height=26, font=("Arial", 12), bg="#ffffff", fg="#000000")
         self.chat_window.pack(padx=10, pady=10)
 
         # Create input field
