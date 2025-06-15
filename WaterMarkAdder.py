@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 from PIL import Image, ImageTk
+import os # Imported for os.path.basename in case needed for cleaner names, though not strictly used in current file handling
 
 class ImageWatermarkerApp:
     def __init__(self, root):
@@ -81,7 +82,7 @@ class ImageWatermarkerApp:
         images_display_frame.rowconfigure(0, weight=1)
         images_display_frame.columnconfigure(0, weight=1)
 
-        self.image_listbox = tk.Listbox(images_display_frame, height=5, selectmode=tk.SINGLE)
+        self.image_listbox = tk.Listbox(images_display_frame, height=5, selectmode=tk.EXTENDED) # Changed to EXTENDED for multi-select
         self.image_listbox.grid(row=0, column=0, sticky="nsew")
         self.image_listbox.bind("<<ListboxSelect>>", self.display_preview) # Bind for preview on selection
 
@@ -89,6 +90,9 @@ class ImageWatermarkerApp:
         list_scrollbar = ttk.Scrollbar(images_display_frame, orient="vertical", command=self.image_listbox.yview)
         list_scrollbar.grid(row=0, column=1, sticky="ns")
         self.image_listbox.config(yscrollcommand=list_scrollbar.set)
+
+        # New: Remove Selected Images Button
+        ttk.Button(images_display_frame, text="Remove Selected Image(s)", command=self.remove_selected_images).grid(row=1, column=0, sticky="ew", pady=5)
 
         # --- Preview Section ---
         preview_frame = ttk.LabelFrame(main_frame, text="Preview (First Selected Image)", padding="10")
@@ -126,12 +130,36 @@ class ImageWatermarkerApp:
             filetypes=[("Image files", "*.jpg *.jpeg *.png"), ("All files", "*.*")]
         )
         if paths:
-            self.image_paths = list(paths)
-            self.image_listbox.delete(0, tk.END) # Clear existing list
+            # Add only new paths, avoid duplicates
+            new_paths = [p for p in paths if p not in self.image_paths]
+            self.image_paths.extend(new_paths)
+            # Re-populate listbox to ensure consistency and unique entries
+            self.image_listbox.delete(0, tk.END)
             for p in self.image_paths:
                 self.image_listbox.insert(tk.END, p)
             self.status_label.config(text=f"Selected {len(self.image_paths)} images.")
             self.display_preview() # Display preview of the first selected image
+
+    def remove_selected_images(self):
+        selected_indices = self.image_listbox.curselection() # Get indices of selected items
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select image(s) to remove.")
+            return
+
+        # Convert tuple of indices to a list and sort in reverse order
+        # This is crucial to avoid issues when deleting items from the listbox
+        # (deleting from the end first prevents indices from shifting)
+        indices_to_remove = sorted(list(selected_indices), reverse=True)
+
+        for index in indices_to_remove:
+            # Remove from internal list first
+            if index < len(self.image_paths): # Safety check
+                del self.image_paths[index]
+            # Then remove from the listbox display
+            self.image_listbox.delete(index)
+
+        self.status_label.config(text=f"Removed {len(selected_indices)} image(s). {len(self.image_paths)} images remaining.")
+        self.display_preview() # Update preview after removal
 
     def select_logo(self):
         # Open file dialog to select logo image
@@ -141,7 +169,7 @@ class ImageWatermarkerApp:
         )
         if path:
             self.logo_path = path
-            self.status_label.config(text=f"Selected logo: {path.split('/')[-1]}")
+            self.status_label.config(text=f"Selected logo: {os.path.basename(path)}")
             self.display_preview() # Update preview with new logo
 
     def select_output_dir(self):
@@ -238,9 +266,15 @@ class ImageWatermarkerApp:
 
         if not self.image_paths:
             self.status_label.config(text="No images selected for preview.")
+            # Display a message on the canvas when no images are selected
+            self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2,
+                                     text="No images selected for preview.", fill="gray", font=("Arial", 10))
             return
         if not self.logo_path:
             self.status_label.config(text="No logo selected for preview.")
+            # Display a message specific to missing logo
+            self.canvas.create_text(self.canvas.winfo_width()/2, self.canvas.winfo_height()/2,
+                                     text="Please select a logo to enable preview.", fill="gray", font=("Arial", 10))
             return
 
         # Get the currently selected image in the listbox, or the first one if none selected
@@ -248,7 +282,7 @@ class ImageWatermarkerApp:
         if selected_indices:
             preview_image_path = self.image_paths[selected_indices[0]]
         else:
-            preview_image_path = self.image_paths[0]
+            preview_image_path = self.image_paths[0] # Default to the first image if none are selected
 
         try:
             original_image_for_preview = Image.open(preview_image_path).convert("RGBA")
@@ -426,8 +460,8 @@ class ImageWatermarkerApp:
                     watermarked_image = Image.alpha_composite(base_image, temp_img)
 
                     # Save the watermarked image
-                    file_name = image_path.split('/')[-1]
-                    output_path = f"{self.output_dir}/watermarked_{file_name}"
+                    file_name = os.path.basename(image_path) # Using os.path.basename for cleaner file names
+                    output_path = os.path.join(self.output_dir, f"watermarked_{file_name}")
                     # Convert back to RGB for saving if original was JPG, to avoid transparency issues
                     if watermarked_image.mode != 'RGB':
                         watermarked_image = watermarked_image.convert('RGB')
