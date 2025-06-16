@@ -1,6 +1,7 @@
 #fetches the Module (Tkinter)
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image
 #This function restricts the input of letters
 def validate_input(P):
     allowed_chars = '0,1,2,3,4,5,6,7,8,9,.,+,-,%,/,*'#, error'
@@ -12,6 +13,9 @@ def validate_input(P):
 window = tk.Tk()
 window.geometry("350x499")
 window.title("Kent Calculator_App")
+image = Image.open("calculate.png")
+image.save("calculate.ico", format="ICO")
+window.iconbitmap("calculate.ico")
 # Sets the widgets (i.e Display screen and Button frames in place more like being responsive
 #more like by setting how many columns as well as rows the window should have)
 window.columnconfigure(0, weight =1)
