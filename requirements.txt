@@ -1,0 +1,9 @@
+cloudinary
+bs4
+Django
+selenium
+dotenv
+webdriver-manager
+requests
+pillow
+lxml
