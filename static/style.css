@@ -1,0 +1,80 @@
+/* Custom styles for Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Basic styling for better readability */
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #45a049;
+        }
+        .btn-danger {
+            background-color: #f44336;
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover {
+            background-color: #da190b;
+        }
+        .btn-info {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+        }
+        .btn-info:hover {
+            background-color: #0b7dda;
+        }
+        .completed-item {
+            text-decoration: line-through;
+            color: #6b7280; /* Gray out completed items */
+        }
+
+        /* Error message styling - add this to your existing auth.css */
+        .field-error-message {
+            color: #dc2626; /* Red color */
+            font-size: 0.875rem; /* Small text size */
+            margin-top: 0.25rem; /* Small margin top */
+            display: block;
+            font-weight: 500;
+        }
+
+        /* Input border styling when there's an error */
+        .input-error-border {
+            border-color: #dc2626 !important; /* Red border */
+            box-shadow: 0 0 0 1px #dc2626 !important; /* Red outline */
+        }
+
+        /* Make sure the password match message uses the same styling */
+        #password-match-message {
+            color: #dc2626;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }

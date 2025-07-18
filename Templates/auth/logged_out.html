@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logged Out</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .container { max-width: 400px; margin: 0 auto; padding: 20px; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 flex items-center justify-center min-h-screen">
+    <div class="container bg-white shadow-lg rounded-lg p-6 text-center">
+        <h1 class="text-3xl font-bold mb-6 text-blue-600">You have been logged out.</h1>
+        <p class="text-lg mb-8">Thank you for using our service.</p>
+        <a href="{% url 'login' %}"
+           class="btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+            Login Again
+        </a>
+    </div>
+</body>
+</html>

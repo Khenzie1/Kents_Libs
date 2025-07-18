@@ -1,0 +1,63 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Item - Django CRUD</title>
+    <link rel="stylesheet" href="{% static "style.css" %}">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .container { max-width: 960px; margin: 0 auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn { padding: 8px 15px; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; }
+        .btn-info { background-color: #2196F3; color: white; border: none; }
+        .btn-info:hover { background-color: #0b7dda; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4">
+    <div class="container bg-white shadow-lg rounded-lg p-6">
+        <h1 class="text-3xl font-bold text-center mb-8 text-purple-600">Update Item: {{ item.name }}</h1>
+
+        <!-- Message Display Area -->
+        {% if messages %}
+            <ul class="messages mb-4 p-3 rounded-md">
+                {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }} p-2 rounded-md mb-2 bg-green-100 text-green-700"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <section class="p-6 bg-purple-50 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-purple-700">Edit Item Details</h2>
+            <!--
+                This form will submit directly to the item_update view (POST request).
+                The action URL includes the item's ID from the Django context.
+            -->
+            <form action="/update-item/{{ item.id }}/" method="post" class="space-y-4">
+                {% csrf_token %}
+                <!-- Hidden input for the item ID (optional, but good practice if you want to explicitly send it) -->
+                <input type="hidden" name="id" value="{{ item.id }}">
+                <div class="form-group">
+                    <label for="updateName" class="block text-gray-700 text-sm font-bold mb-2">Item Name:</label>
+                    <!-- IMPORTANT: The 'value' attribute is pre-filled with the current item's name -->
+                    <input type="text" id="updateName" name="name" value="{{ item.name }}" required
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-purple-500 rounded-md">
+                </div>
+                <button type="submit"
+                        class="btn btn-info w-full bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline transition duration-150 ease-in-out">
+                    Update Item
+                </button>
+                <a href="{% url 'item_list_create' %}"
+                   class="block text-center mt-4 text-blue-500 hover:text-blue-700 font-semibold">
+                    Back to Item List
+                </a>
+            </form>
+        </section>
+    </div>
+</body>
+</html>

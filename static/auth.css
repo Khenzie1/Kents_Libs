@@ -1,0 +1,376 @@
+/* static/auth.css */
+
+/* Base styles for the body and overall container */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6; /* Light gray background */
+    display: flex;
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    min-height: 100vh; /* Full viewport height */
+    margin: 0;
+    padding: 1rem; /* Reduced padding on body, let container handle spacing */
+    box-sizing: border-box; /* Include padding in width calculation */
+    overflow-y: auto; /* Allow scrolling if content is too tall */
+}
+
+.auth-container {
+    background-color: #ffffff; /* White card background */
+    border-radius: 1rem; /* More rounded corners */
+    box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08); /* Stronger, more diffused shadow */
+    padding: 2.5rem; /* Consistent internal padding */
+    width: 100%;
+    max-width: 450px; /* Max width for the card */
+    box-sizing: border-box; /* Include padding in width calculation */
+    border: 1px solid #e0e0e0; /* Subtle light gray border for definition */
+}
+
+/* Welcome heading */
+.auth-welcome-heading {
+    font-size: 2.5rem; /* Larger font size */
+    font-weight: 800; /* Extra bold */
+    color: #2563eb; /* Deeper blue */
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.auth-subtitle {
+    font-size: 1rem;
+    color: #6b7280; /* Gray text */
+    text-align: center;
+    margin-bottom: 2rem; /* More space below subtitle */
+}
+
+/* Tab navigation (Sign In / Sign Up) */
+.auth-tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem; /* Space below tabs */
+    border-bottom: 1px solid #e5e7eb; /* Light separator line */
+}
+
+.auth-tab-item {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem 0;
+    font-size: 1.125rem; /* Larger text */
+    font-weight: 600; /* Semi-bold */
+    color: #6b7280; /* Default tab text color */
+    text-decoration: none; /* Remove underline */
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.auth-tab-item:hover {
+    color: #3b82f6; /* Blue on hover */
+}
+
+.auth-tab-item.active {
+    color: #3b82f6; /* Active tab blue */
+}
+
+.auth-tab-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; /* Align with border-bottom */
+    left: 0;
+    width: 100%;
+    height: 3px; /* Blue underline thickness */
+    background-color: #3b82f6; /* Blue underline */
+    border-radius: 2px 2px 0 0; /* Rounded top corners for underline */
+}
+
+/* Form fields */
+.auth-form-field {
+    margin-bottom: 1.25rem; /* More space between fields */
+}
+
+.auth-form-field label {
+    display: block;
+    font-size: 0.9rem; /* Slightly smaller label */
+    font-weight: 600;
+    color: #4a5568; /* Darker gray label */
+    margin-bottom: 0.5rem;
+}
+
+/* General input styling */
+.auth-input {
+    width: 100%; /* Ensure full width */
+    padding: 0.75rem 1rem; /* Consistent internal padding */
+    background-color: #ffffff; /* White input background */
+    border: 1px solid #d1d5db; /* Lighter border */
+    border-radius: 0.5rem; /* More rounded corners */
+    font-size: 1rem;
+    color: #374151; /* Darker input text */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box; /* CRITICAL: Ensure padding and border are included in the width */
+}
+
+.auth-input::placeholder { /* Placeholder color */
+    color: #a0aec0; /* Lighter gray placeholder */
+    opacity: 1; /* Ensure placeholder is visible */
+}
+
+.auth-input:focus {
+    outline: none;
+    border-color: #3b82f6; /* Blue focus border */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); /* Blue focus ring */
+}
+
+/* Error border for inputs (Django server-side errors & client-side) */
+.auth-form-field ul.errorlist + .auth-input, 
+.auth-form-field ul.errorlist + .password-input-wrapper .auth-input,
+.auth-input.input-error-border {
+    border-color: #ef4444 !important; /* Red border for error */
+    box-shadow: 0 0 0 1px #ef4444 !important; /* Red outline */
+}
+
+/* Password input specific styling */
+.password-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-input-wrapper .auth-input {
+    padding-right: 3rem; /* Make space for the eye icon */
+}
+
+.password-toggle-icon {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6b7280; /* Gray eye icon color */
+    font-size: 1.25rem; /* Size of the eye icon */
+    transition: color 0.2s ease;
+}
+
+.password-toggle-icon:hover {
+    color: #3b82f6; /* Blue on hover */
+}
+
+/* Password strength indicator */
+.password-strength-meter-container {
+    margin-top: 0.75rem;
+}
+
+.password-strength-meter {
+    height: 8px;
+    background-color: #e5e7eb; /* Light gray background for empty bar */
+    border-radius: 4px;
+    overflow: hidden; /* Ensure inner bar stays within bounds */
+}
+
+.password-strength-bar {
+    height: 100%;
+    width: 0%; /* Starts empty */
+    border-radius: 4px;
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* Strength levels */
+.strength-weak .password-strength-bar { background-color: #ef4444; } /* Red */
+.strength-fair .password-strength-bar { background-color: #f59e0b; } /* Orange */
+.strength-good .password-strength-bar { background-color: #22c55e; } /* Green */
+.strength-strong .password-strength-bar { background-color: #1d4ed8; } /* Darker Blue */
+
+.strength-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: right;
+    margin-top: 0.5rem;
+    color: #6b7280; /* Default gray */
+    transition: color 0.3s ease-in-out;
+}
+
+.strength-weak .strength-text { color: #ef4444; } 
+.strength-fair .strength-text { color: #f59e0b; } 
+.strength-good .strength-text { color: #22c55e; } 
+.strength-strong .strength-text { color: #1d4ed8; } 
+
+
+/* Password requirement items */
+.password-requirements-list { 
+    margin-top: 1rem; /* Consistent spacing below password field before requirements */
+    padding: 0;
+    list-style: none; /* Remove default list bullets */
+}
+
+.password-requirement-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem; /* Slightly smaller text for requirements */
+    color: #6b7280; /* Default gray color */
+    transition: color 0.2s ease;
+    margin-bottom: 0.5rem; /* Space between items */
+}
+
+.password-requirement-item .requirement-icon {
+    width: 1rem; /* Icon size */
+    height: 1rem;
+    margin-right: 0.75rem; /* Space between icon and text */
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.9rem; /* Icon font size */
+    color: #d1d5db; /* Default gray icon color */
+    transition: color 0.2s ease;
+}
+
+.password-requirement-item.met-requirement {
+    color: #10b981; /* Green text for met requirements */
+}
+
+.password-requirement-item.met-requirement .requirement-icon {
+    color: #10b981; /* Green icon for met indicator */
+}
+/* Ensure checkmark icon is styled when requirement is met */
+.password-requirement-item.met-requirement .requirement-icon .fa-check-circle {
+    color: #10b981;
+}
+
+
+/* Checkbox specific styles */
+.auth-checkbox-container {
+    display: flex;
+    flex-wrap: wrap; /* Allow items to wrap to next line if space is tight */
+    align-items: center; /* Changed from flex-start to center for better vertical alignment */
+    margin-top: 1.5rem; /* Space above checkbox */
+    margin-bottom: 1.5rem; /* Space below checkbox */
+    font-size: 0.9rem;
+    color: #4a5568; /* Darker gray text color */
+}
+
+.auth-checkbox-container input[type="checkbox"] {
+    margin-right: 0.75rem; /* Space between checkbox and text */
+    margin-top: 0.25rem; /* Align checkbox vertically */
+    flex-shrink: 0; /* Prevent checkbox from shrinking */
+    width: 1.125rem; /* Custom size */
+    height: 1.125rem; /* Custom size */
+    border-radius: 0.25rem; /* Slightly rounded */
+    border: 1px solid #d1d5db; /* Lighter border */
+    accent-color: #3b82f6; /* Blue accent for checked state */
+    box-sizing: border-box; /* Ensure padding and border are included in the width */
+}
+
+.auth-checkbox-container a {
+    color: #3b82f6; /* Blue links */
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-checkbox-container a:hover {
+    text-decoration: underline;
+}
+
+
+/* Buttons */
+.auth-btn {
+    width: 100%;
+    padding: 0.85rem 1.5rem; /* Increased padding */
+    border-radius: 0.5rem; /* More rounded corners */
+    font-size: 1.125rem; /* Larger text */
+    font-weight: 700; /* Bolder text */
+    color: white;
+    background-color: #3b82f6; /* Blue button */
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Button shadow */
+    box-sizing: border-box; /* Ensure padding and border are included in the width */
+}
+
+.auth-btn:hover {
+    background-color: #2563eb; /* Darker blue on hover */
+    transform: translateY(-1px); /* Slight lift effect */
+    box-shadow: 0 6px 10px -2px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+}
+
+.auth-btn:active {
+    transform: translateY(0); /* Press down effect */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Links below forms */
+.auth-link-text {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+    color: #6b7280; /* Gray text */
+}
+
+.auth-link-text a {
+    color: #3b82f6; /* Blue links */
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.auth-link-text a:hover {
+    text-decoration: underline;
+}
+
+/* Message styling */
+.messages {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem 0;
+}
+
+.messages li {
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+}
+.messages li.success { background-color: #d1fae5; color: #065f46; } /* Green for success */
+.messages li.error { background-color: #fee2e2; color: #991b1b; }   /* Red for error */
+.messages li.info { background-color: #dbeafe; color: #1e40af; }    /* Blue for info */
+
+/* Specific for "Forgot your password?" link */
+.auth-forgot-password {
+    text-align: right;
+    margin-top: -0.75rem; /* Pull it up closer to the password field */
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
+}
+.auth-forgot-password a {
+    color: #3b82f6; /* Blue link */
+    text-decoration: none;
+    font-weight: 500;
+}
+.auth-forgot-password a:hover {
+    text-decoration: underline;
+}
+
+/* Client-side error messages (now primary error style) */
+.field-error-message { 
+    color: #dc2626; /* Red color */
+    font-size: 0.875rem; /* Small text size */
+    margin-top: 0.25rem; /* Small margin top */
+    display: block; 
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .auth-container {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    .auth-welcome-heading {
+        font-size: 2rem;
+    }
+    .auth-subtitle {
+        font-size: 0.9rem;
+    }
+    .auth-tab-item {
+        font-size: 1rem;
+    }
+    .auth-btn {
+        font-size: 1rem;
+        padding: 0.75rem 1rem;
+    }
+}
