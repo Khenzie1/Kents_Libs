@@ -10,7 +10,8 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 # Celery Configuration
 CELERY_BROKER_URL = config('CELERY_BROKER_URL')
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND')
-CELERY_ACCEPT_CONTENT = ['json']
+CELERY_ACCEPT_CONTENT = os.environ.get('CELERY_ACCEPT_CONTENT', "['json']").strip("[]").replace("'", "").replace('"', '').split(',')
+CELERY_ACCEPT_CONTENT = [item.strip() for item in CELERY_ACCEPT_CONTENT if item.strip()] # Clean up list
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = config('CELERY_TIMEZONE', default='Africa/Lagos')  # Nigeria timezone
