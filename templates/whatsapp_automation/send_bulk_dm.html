@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Send Bulk DM - WATRHC WhatsApp Automation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-paper-plane text-primary me-2"></i>
+        Send Bulk Direct Messages
+    </h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>
+        Back to Dashboard
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Compose Bulk Message</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="label" class="form-label">Target Label</label>
+                        <select class="form-select" id="label" name="label" required>
+                            <option value="">Select a label...</option>
+                            {% for label in labels %}
+                                <option value="{{ label }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            Messages will be sent to all active contacts with this label
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="template" class="form-label">Message Template (Optional)</label>
+                        <select class="form-select" id="template" onchange="loadTemplate()">
+                            <option value="">Select a template...</option>
+                            {% for template in templates %}
+                                <option value="{{ template.id }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            Choose a pre-made template or write a custom message below
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="message_content" class="form-label">Message Content</label>
+                        <textarea class="form-control" id="message_content" name="message_content" 
+                                  rows="8" required 
+                                  placeholder="Hi {name} 👋🏼
+
+Just checking in from the RootHub Community! How's your learning journey so far?
+
+Let me know if you need any support or have questions about your track.
+
+Best regards,
+Hannah"></textarea>
+                        <div class="form-text">
+                            Use {name} to personalize messages with the contact's name
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Important:</strong> Messages will be sent with a 60-second delay between each contact to avoid being flagged by WhatsApp.
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-paper-plane me-2"></i>
+                            Schedule Bulk Messages
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Tips for Effective Messaging</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Keep messages personal and warm
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Use the {name} placeholder for personalization
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Include a clear call-to-action
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Add emojis to make messages friendly
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-exclamation text-warning me-2"></i>
+                        Avoid promotional language
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Sample Messages</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Welcome Message:</strong>
+                    <p class="small text-muted mt-1">
+                        "Hi {name} 👋🏼 Welcome to the RootHub Community! I'm Hannah, your community manager. How can I support your learning journey?"
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Check-in Message:</strong>
+                    <p class="small text-muted mt-1">
+                        "Hey {name}! Just checking in - how are you finding your course so far? Any challenges I can help with? 💪🏽"
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadTemplate() {
+    const templateSelect = document.getElementById('template');
+    const messageTextarea = document.getElementById('message_content');
+    
+    if (templateSelect.value) {
+        fetch(`/api/template-content/?template_id=${templateSelect.value}`)
+            .then(response => response.json())
+            .then(data => {
+                messageTextarea.value = data.content;
+            })
+            .catch(error => {
+                console.error('Error loading template:', error);
+            });
+    }
+}
+</script>
+{% endblock %}

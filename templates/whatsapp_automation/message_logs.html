@@ -1,0 +1,488 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Message Logs - WATRHC WhatsApp Automation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-list text-primary me-2"></i>
+        Message Logs
+    </h1>
+    <div class="btn-toolbar">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-filter me-1"></i>
+                Filter by Status <span id="currentStatusFilter"></span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=all" data-status-filter="all">All Messages</a></li>
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=success" data-status-filter="success">Success Only</a></li>
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=failed" data-status-filter="failed">Failed Only</a></li>
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=pending" data-status-filter="pending">Pending Only</a></li>
+            </ul>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+
+{# The alert is now managed dynamically by JS based on current filter #}
+<div id="statusFilterAlertContainer">
+    {% if status_filter and status_filter != 'all' %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert" id="initialFilterAlert">
+        <i class="fas fa-filter me-2"></i>
+        Showing only <strong>{{ status_filter|title }}</strong> messages.
+        <a href="{% url 'message_logs' %}?status=all" class="alert-link" id="clearFilterLink">Clear filter</a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+</div>
+
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-history me-2"></i>
+            Message History
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Recipient</th>
+                        <th>Type</th>
+                        <th>Message Preview</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="messageLogsTableBody">
+                    {# Content will be loaded dynamically by JavaScript #}
+                </tbody>
+            </table>
+        </div>
+        
+        {# This section is now purely for showing message count info #}
+        <div class="text-center mt-3">
+            <p class="text-muted" id="showingCount"></p>
+        </div>
+        
+        <div class="text-center py-5" id="noLogsFound" style="display: none;"> {# Hidden by default, shown by JS #}
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No message logs found</h5>
+            <p class="text-muted">Messages will appear here once you start sending them.</p>
+            <a href="{% url 'send_bulk_dm' %}" class="btn btn-primary">
+                <i class="fas fa-paper-plane me-1"></i>
+                Send Your First Message
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalLabel">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="messageContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading message details...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Function to fetch and display full message details in the modal
+    function viewMessage(logId) {
+        const modalContent = document.getElementById('messageContent');
+        // Show loading spinner while fetching
+        modalContent.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading message details...</p>
+            </div>
+        `;
+        const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+        modal.show();
+
+        fetch(`{% url 'api_message_log_details' log_id=0 %}`.replace('0', logId)) 
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok, status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                modalContent.innerHTML = `
+                    <p><strong>Recipient:</strong> ${data.recipient_name}</p>
+                    <p><strong>Type:</strong> <span class="badge bg-secondary">${data.recipient_type.charAt(0).toUpperCase() + data.recipient_type.slice(1)}</span></p>
+                    <p><strong>Status:</strong> <span class="badge bg-${data.status === 'success' ? 'success' : data.status === 'failed' ? 'danger' : 'warning'}">${data.status.charAt(0).toUpperCase() + data.status.slice(1)}</span></p>
+                    <p><strong>Sent At:</strong> ${new Date(data.sent_at).toLocaleString()}</p>
+                    <h6>Message Content:</h6>
+                    <pre style="white-space: pre-wrap; word-wrap: break-word;">${data.message_content || 'No content provided.'}</pre>
+                    ${data.error_message ? `<div class="alert alert-danger mt-3"><strong>Error:</strong> ${data.error_message}</div>` : ''}
+                `;
+            })
+            .catch(error => {
+                console.error('Error fetching message details:', error);
+                modalContent.innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Failed to load message details. Please try again.</div>`;
+            });
+    }
+
+    // Function to fetch and render filtered message logs
+    function fetchAndRenderMessageLogs(status = 'all') { // Default to 'all'
+        const url = new URL('{% url "api_filtered_message_logs" %}', window.location.origin);
+        if (status && status !== 'all') { // Only add param if not 'all'
+            url.searchParams.append('status', status);
+        }
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok, status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const tableBody = document.getElementById('messageLogsTableBody');
+                const noLogsDiv = document.getElementById('noLogsFound');
+                const tableContainer = document.querySelector('.table-responsive'); 
+                const showingCountP = document.getElementById('showingCount');
+                const statusFilterAlertContainer = document.getElementById('statusFilterAlertContainer');
+                
+                tableBody.innerHTML = ''; // Clear existing rows
+
+                // Clear any previous alert
+                statusFilterAlertContainer.innerHTML = ''; 
+
+                // Show filter alert if a specific status is applied
+                if (status && status !== 'all') {
+                    statusFilterAlertContainer.innerHTML = `
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <i class="fas fa-filter me-2"></i>
+                            Showing only <strong>${status.charAt(0).toUpperCase() + status.slice(1)}</strong> messages.
+                            <a href="javascript:void(0);" class="alert-link" id="clearFilterLink">Clear filter</a>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    // Re-attach event listener to the new clear filter link
+                    const clearLink = document.getElementById('clearFilterLink');
+                    if (clearLink) {
+                        clearLink.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            fetchAndRenderMessageLogs('all');
+                            updateFilterButtonText('All'); // Reset button text
+                            // Remove alert after clearing
+                            const alertElement = document.getElementById('initialFilterAlert') || statusFilterAlertContainer.querySelector('.alert');
+                            if (alertElement) {
+                                new bootstrap.Alert(alertElement).close();
+                            }
+                        });
+                    }
+                }
+
+
+                if (data.logs.length === 0) {
+                    tableContainer.style.display = 'none';
+                    noLogsDiv.style.display = 'block';
+                    showingCountP.style.display = 'none';
+                } else {
+                    tableContainer.style.display = 'block';
+                    noLogsDiv.style.display = 'none';
+                    showingCountP.style.display = 'block';
+                    
+                    if (data.count > 50) { // If backend applies a limit like :50
+                        showingCountP.textContent = `Showing recent ${data.count} messages (max)`;
+                    } else {
+                        showingCountP.textContent = `Showing ${data.count} messages`;
+                    }
+
+                    data.logs.forEach(log => {
+                        const row = `
+                            <tr>
+                                <td><strong>${log.recipient_name}</strong></td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-${log.icon_class_type} me-1"></i>
+                                        ${log.recipient_type.charAt(0).toUpperCase() + log.recipient_type.slice(1)}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="message-preview">${log.message_content_preview}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-${log.badge_color_status}">
+                                        <i class="fas fa-${log.icon_class_status} me-1"></i>
+                                        ${log.status.charAt(0).toUpperCase() + log.status.slice(1)}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>
+                                        ${log.sent_at_date}<br>
+                                        ${log.sent_at_time}
+                                    </small>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" onclick="viewMessage(${log.id})">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching filtered logs:', error);
+                const tableBody = document.getElementById('messageLogsTableBody');
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">
+                                            <i class="fas fa-exclamation-triangle me-2"></i> Failed to load message logs.
+                                        </td></tr>`;
+                const noLogsDiv = document.getElementById('noLogsFound');
+                const tableContainer = document.querySelector('.table-responsive');
+                if (noLogsDiv) noLogsDiv.style.display = 'none';
+                if (tableContainer) tableContainer.style.display = 'block'; // Ensure table is visible for error message
+                const showingCountP = document.getElementById('showingCount');
+                if (showingCountP) showingCountP.style.display = 'none';
+
+                const statusFilterAlertContainer = document.getElementById('statusFilterAlertContainer');
+                statusFilterAlertContainer.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i> Error loading logs: ${error.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            });
+    }
+
+    function updateFilterButtonText(status) {
+        const filterButton = document.querySelector('.btn-toolbar .dropdown-toggle');
+        const displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
+        filterButton.innerHTML = `<i class="fas fa-filter me-1"></i> Filter by Status: ${displayStatus}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Event listeners for filter dropdown items
+        document.querySelectorAll('.dropdown-menu .dropdown-item').forEach(item => {
+            item.addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent full page reload
+                const status = this.getAttribute('data-status-filter'); 
+                fetchAndRenderMessageLogs(status);
+                updateFilterButtonText(status);
+            });
+        });
+
+        // Get initial status from URL for the first load
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialStatus = urlParams.get('status') || 'all';
+
+        // Perform initial fetch and render
+        fetchAndRenderMessageLogs(initialStatus); 
+        updateFilterButtonText(initialStatus);
+
+        // Handle initial filter alert visibility (if it exists from Django render)
+        const initialAlert = document.getElementById('initialFilterAlert');
+        if (initialAlert) {
+            const clearLink = document.getElementById('clearFilterLink');
+            if (clearLink) {
+                clearLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    fetchAndRenderMessageLogs('all');
+                    updateFilterButtonText('All'); // Reset button text
+                    new bootstrap.Alert(initialAlert).close(); // Close the specific alert
+                });
+            }
+        }
+    });
+</script>
+{% endblock %}
+
+
+
+
+
+{% comment %} {% extends 'base.html' %}
+
+{% block title %}Message Logs - WATRHC WhatsApp Automation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-list text-primary me-2"></i>
+        Message Logs
+    </h1>
+    <div class="btn-toolbar">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-filter me-1"></i>
+                Filter by Status
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}">All Messages</a></li>
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=success">Success Only</a></li>
+                <li><a class="dropdown-item" href="{% url 'message_logs' %}?status=failed">Failed Only</a></li>
+            </ul>
+        </div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>
+            Back to Dashboard
+        </a>
+    </div>
+</div>
+
+{% if status_filter %}
+<div class="alert alert-info alert-dismissible fade show" role="alert">
+    <i class="fas fa-filter me-2"></i>
+    Showing only <strong>{{ status_filter }}</strong> messages.
+    <a href="{% url 'message_logs' %}" class="alert-link">Clear filter</a>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-history me-2"></i>
+            Message History
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if logs %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Recipient</th>
+                        <th>Type</th>
+                        <th>Message Preview</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>
+                            <strong>{{ log.recipient_name }}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                <i class="fas fa-{% if log.recipient_type == 'contact' %}user{% else %}users{% endif %} me-1"></i>
+                                {{ log.recipient_type|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="message-preview">
+                                {{ log.message_content|truncatechars:80 }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'failed' %}danger{% else %}warning{% endif %}">
+                                <i class="fas fa-{% if log.status == 'success' %}check{% elif log.status == 'failed' %}times{% else %}clock{% endif %} me-1"></i>
+                                {{ log.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>
+                                {{ log.sent_at|date:"M d, Y" }}<br>
+                                {{ log.sent_at|time:"H:i" }}
+                            </small>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewMessage({{ log.id }})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if logs.count > 50 %}
+        <div class="text-center mt-3">
+            <p class="text-muted">Showing recent 50 messages</p>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No message logs found</h5>
+            <p class="text-muted">Messages will appear here once you start sending them.</p>
+            <a href="{% url 'send_bulk_dm' %}" class="btn btn-primary">
+                <i class="fas fa-paper-plane me-1"></i>
+                Send Your First Message
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Message Details Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="messageContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function viewMessage(logId) {
+    // For now, we'll show a placeholder
+    // In a full implementation, you'd fetch details via AJAX
+    const modalContent = document.getElementById('messageContent');
+    modalContent.innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Message details for ID: ${logId}
+        </div>
+        <p>Full message content and delivery details would be shown here.</p>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('messageModal'));
+    modal.show();
+}
+</script>
+{% endblock %} {% endcomment %}
+
+
+

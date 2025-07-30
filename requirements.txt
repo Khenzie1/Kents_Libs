@@ -1,0 +1,19 @@
+Django
+selenium
+webdriver-manager
+django-extensions
+celery
+redis
+python-decouple
+gspread
+oauth2client
+pandas
+APScheduler
+django-apscheduler
+flower # For Celery monitoring
+psutil # For system monitoring
+eventlet # For event handling
+
+#celery -A watrhc_automation worker --loglevel=info
+#celery -A watrhc_automation worker --loglevel=info --pool=solo
+#celery -A watrhc_automation beat --loglevel=info

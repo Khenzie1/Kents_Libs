@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Schedule Message - WATRHC WhatsApp Automation{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-clock text-primary me-2"></i>
+        Schedule Message
+    </h1>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>
+        Back to Dashboard
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Schedule New Message</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Message Title</label>
+                        <input type="text" class="form-control" id="title" name="title" required
+                               placeholder="e.g., Weekly Python Class Check-in">
+                        <div class="form-text">
+                            Give your scheduled message a descriptive title
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="target_type" class="form-label">Target Type</label>
+                        <select class="form-select" id="target_type" name="target_type" required onchange="updateTargetOptions()">
+                            <option value="">Select target type...</option>
+                            <option value="individual">Individual Contact</option>
+                            <option value="group">WhatsApp Group</option>
+                            <option value="label_based">Label-based (Multiple Contacts)</option>
+                        </select>
+                    </div>
+
+                    <!-- Individual Contact Target -->
+                    <div class="mb-3" id="individual_target" style="display: none;">
+                        <label for="target_contact" class="form-label">Select Contact</label>
+                        <select class="form-select" id="target_contact" name="target_contact">
+                            <option value="">Choose a contact...</option>
+                            {% for contact in contacts %}
+                                <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.label }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Group Target -->
+                    <div class="mb-3" id="group_target" style="display: none;">
+                        <label for="target_group" class="form-label">Select Group</label>
+                        <select class="form-select" id="target_group" name="target_group">
+                            <option value="">Choose a group...</option>
+                            {% for group in groups %}
+                                <option value="{{ group.id }}">{{ group.name }} ({{ group.track }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Label-based Target -->
+                    <div class="mb-3" id="label_target" style="display: none;">
+                        <label for="target_label" class="form-label">Select Label</label>
+                        <select class="form-select" id="target_label" name="target_label">
+                            <option value="">Choose a label...</option>
+                            {% for label in labels %}
+                                <option value="{{ label }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="scheduled_time" class="form-label">Schedule Date & Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduled_time" name="scheduled_time" required>
+                        <div class="form-text">
+                            Set when you want this message to be sent (Nigeria time)
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="template" class="form-label">Message Template (Optional)</label>
+                        <select class="form-select" id="template" onchange="loadTemplate()">
+                            <option value="">Select a template...</option>
+                            {% for template in templates %}
+                                <option value="{{ template.id }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="message_content" class="form-label">Message Content</label>
+                        <textarea class="form-control" id="message_content" name="message_content" 
+                                  rows="8" required 
+                                  placeholder="Good morning everyone! 🌅
+
+Hope you're all doing well this week. Here's a quick reminder about our upcoming Python session.
+
+📚 Topic: Working with APIs
+🕐 Time: Tomorrow 3PM WAT
+📍 Join the class group for the link
+
+Any questions? Drop them in the group!
+
+Best regards,
+Hannah"></textarea>
+                        <div class="form-text">
+                            For individual messages, use {name} for personalization
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Note:</strong> Scheduled messages will be processed automatically at the specified time. 
+                        Make sure to keep the system running for automatic delivery.
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-clock me-2"></i>
+                            Schedule Message
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Scheduling Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-lightbulb text-warning me-2"></i>
+                        Schedule during active hours (9AM - 6PM)
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-calendar text-info me-2"></i>
+                        Plan weekly check-ins in advance
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-users text-success me-2"></i>
+                        Use label-based targeting for course updates
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-clock text-primary me-2"></i>
+                        Give 24-hour notice for important events
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">Common Message Types</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Weekly Check-in:</strong>
+                    <p class="small text-muted mt-1">
+                        "How's everyone doing this week? Any challenges with the current module?"
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Class Reminder:</strong>
+                    <p class="small text-muted mt-1">
+                        "Don't forget about tomorrow's session at 3PM! We'll be covering APIs 🚀"
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Motivational:</strong>
+                    <p class="small text-muted mt-1">
+                        "Keep pushing! Every line of code you write brings you closer to your goals 💪🏽"
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateTargetOptions() {
+    const targetType = document.getElementById('target_type').value;
+    
+    // Hide all target options
+    document.getElementById('individual_target').style.display = 'none';
+    document.getElementById('group_target').style.display = 'none';
+    document.getElementById('label_target').style.display = 'none';
+    
+    // Show relevant target option
+    if (targetType === 'individual') {
+        document.getElementById('individual_target').style.display = 'block';
+    } else if (targetType === 'group') {
+        document.getElementById('group_target').style.display = 'block';
+    } else if (targetType === 'label_based') {
+        document.getElementById('label_target').style.display = 'block';
+    }
+}
+
+function loadTemplate() {
+    const templateSelect = document.getElementById('template');
+    const messageTextarea = document.getElementById('message_content');
+    
+    if (templateSelect.value) {
+        fetch(`/api/template-content/?template_id=${templateSelect.value}`)
+            .then(response => response.json())
+            .then(data => {
+                messageTextarea.value = data.content;
+            })
+            .catch(error => {
+                console.error('Error loading template:', error);
+            });
+    }
+}
+
+// Set minimum datetime to current time
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('scheduled_time').min = now.toISOString().slice(0,16);
+});
+</script>
+{% endblock %}
