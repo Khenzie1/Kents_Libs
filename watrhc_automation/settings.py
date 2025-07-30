@@ -30,7 +30,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['kents-libs.onrender.com']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
