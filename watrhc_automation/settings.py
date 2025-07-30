@@ -72,6 +72,9 @@ TEMPLATES = [
     },
 ]
 
+#import dj_database_url
+import dj_database_url
+
 DATABASE_URL_PARSER = config('DATABASE_URL')
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL_PARSER)
