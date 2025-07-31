@@ -5,6 +5,7 @@ django-extensions
 celery
 redis
 python-decouple
+psycopg2-binary
 gspread
 oauth2client
 pandas
