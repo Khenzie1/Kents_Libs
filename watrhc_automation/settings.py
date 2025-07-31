@@ -30,7 +30,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
-ALLOWED_HOSTS = ['kents-libs.onrender.com']
+ALLOWED_HOSTS = ['kents-libs.onrender.com', 'localhost', '127.0.0.1']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -81,12 +81,12 @@ DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL_PARSER)
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 
 # Static files
 STATIC_URL = '/static/'
