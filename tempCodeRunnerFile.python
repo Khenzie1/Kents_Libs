@@ -1,0 +1,982 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from datetime import datetime, timedelta # timedelta is not used in current code, can be removed
+import json
+import csv
+import os
+from pathlib import Path # Not explicitly used for file ops, but good for path handling
+
+class WhatsAppEngagementUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("WATRHC WhatsApp Engagement Assistant")
+        self.root.geometry("1000x700")
+        self.root.configure(bg='#f0f0f0')
+
+        # --- Data Storage ---
+        self.contacts_data = []
+        self.scheduled_messages = []
+        self.message_log = []
+
+        # --- Tkinter Variables for UI State (Initialize these BEFORE load_data) ---
+        # Settings Tab Variables
+        self.browser_var = tk.StringVar(value="Chrome")
+        self.wait_time_var = tk.StringVar(value="10")
+        self.default_delay_var = tk.StringVar(value="45")
+        self.max_messages_var = tk.StringVar(value="50")
+        
+        # DM Automation Tab Variables
+        self.template_var = tk.StringVar()
+        self.labels_var = tk.StringVar()
+        self.delay_var = tk.StringVar(value="45") # Default value for DM delay
+        
+        # Group Scheduler Tab Variables
+        self.group_var = tk.StringVar()
+        self.group_msg_type = tk.StringVar()
+        self.schedule_date = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
+        self.schedule_time = tk.StringVar(value="09:00")
+        self.recurring_var = tk.BooleanVar()
+        self.frequency_var = tk.StringVar()
+
+        # --- Setup UI Components ---
+        self.setup_styles()
+        self.create_header()
+        self.create_notebook()
+        self.create_status_bar()
+
+        # --- Load Data and Refresh Displays ---
+        self.load_data() # Now loads into the correctly initialized Tkinter variables
+        self.refresh_all_displays() # Refresh displays after data is loaded
+
+    # --- Data Management Methods ---
+    def reset_data(self):
+        if messagebox.askyesno("Confirm Reset", "This will delete all contacts, scheduled messages, and logs. Continue?"):
+            self.contacts_data.clear()
+            self.scheduled_messages.clear()
+            self.message_log.clear()
+            self.refresh_all_displays()
+            self.update_status("All data has been reset")
+            messagebox.showinfo("Success", "All data has been reset successfully!")
+    
+    def save_settings(self):
+        settings = {
+            'browser': self.browser_var.get(),
+            'wait_time': self.wait_time_var.get(),
+            'default_delay': self.default_delay_var.get(),
+            'max_messages': self.max_messages_var.get()
+        }
+        
+        try:
+            with open('settings.json', 'w') as file:
+                json.dump(settings, file, indent=2)
+            messagebox.showinfo("Success", "Settings saved successfully!")
+            self.update_status("Settings saved")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save settings: {str(e)}")
+    
+    def load_data(self):
+        """Load existing data from files"""
+        # Load contacts
+        if os.path.exists('contacts.json'):
+            try:
+                with open('contacts.json', 'r', encoding='utf-8') as file:
+                    self.contacts_data = json.load(file)
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "contacts.json is corrupted or empty. Starting contacts fresh.")
+                self.contacts_data = []
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load contacts.json: {str(e)}. Starting contacts fresh.")
+                self.contacts_data = []
+        
+        # Load scheduled messages
+        if os.path.exists('scheduled_messages.json'):
+            try:
+                with open('scheduled_messages.json', 'r', encoding='utf-8') as file:
+                    self.scheduled_messages = json.load(file)
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "scheduled_messages.json is corrupted or empty. Starting scheduled messages fresh.")
+                self.scheduled_messages = []
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load scheduled_messages.json: {str(e)}. Starting scheduled messages fresh.")
+                self.scheduled_messages = []
+
+        # Load message log
+        if os.path.exists('message_log.json'):
+            try:
+                with open('message_log.json', 'r', encoding='utf-8') as file:
+                    self.message_log = json.load(file)
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "message_log.json is corrupted or empty. Starting log fresh.")
+                self.message_log = []
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load message_log.json: {str(e)}. Starting log fresh.")
+                self.message_log = []
+                
+        # Load settings
+        if os.path.exists('settings.json'):
+            try:
+                with open('settings.json', 'r') as file:
+                    settings = json.load(file)
+                    self.browser_var.set(settings.get('browser', 'Chrome'))
+                    self.wait_time_var.set(settings.get('wait_time', '10'))
+                    self.default_delay_var.set(settings.get('default_delay', '45'))
+                    self.max_messages_var.set(settings.get('max_messages', '50'))
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "settings.json is corrupted or empty. Using default settings.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load settings.json: {str(e)}. Using default settings.")
+    
+    def save_data(self):
+        """Save data to files"""
+        try:
+            with open('contacts.json', 'w', encoding='utf-8') as file:
+                json.dump(self.contacts_data, file, indent=2)
+            with open('scheduled_messages.json', 'w', encoding='utf-8') as file:
+                json.dump(self.scheduled_messages, file, indent=2)
+            with open('message_log.json', 'w', encoding='utf-8') as file:
+                json.dump(self.message_log, file, indent=2)
+            self.update_status("All data saved.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save data: {str(e)}")
+
+    def refresh_contacts_display(self):
+        """Refresh the contacts treeview"""
+        for item in self.contacts_tree.get_children():
+            self.contacts_tree.delete(item)
+        
+        for contact in self.contacts_data:
+            self.contacts_tree.insert('', 'end', values=(
+                contact.get('Name', ''),
+                contact.get('Phone', ''),
+                contact.get('Labels', ''),
+                contact.get('Last Contact', 'Never'),
+                contact.get('Status', 'Active')
+            ))
+        
+        # Update stats
+        self.total_contacts_label.config(text=f"Total Contacts: {len(self.contacts_data)}")
+    
+    def refresh_log_display(self):
+        """Refresh the log treeview"""
+        for item in self.log_tree.get_children():
+            self.log_tree.delete(item)
+        
+        for log_entry in self.message_log:
+            self.log_tree.insert('', 'end', values=(
+                log_entry.get('Timestamp', ''),
+                log_entry.get('Type', ''),
+                log_entry.get('Recipient', ''),
+                log_entry.get('Message', '')[:50] + '...' if len(log_entry.get('Message', '')) > 50 else log_entry.get('Message', ''),
+                log_entry.get('Status', '')
+            ))
+    
+    def refresh_all_displays(self):
+        """Refresh all data displays"""
+        self.refresh_contacts_display()
+        self.refresh_log_display()
+        
+        # Update statistics
+        today_messages = len([log for log in self.message_log 
+                               if log.get('Timestamp', '').startswith(datetime.now().strftime('%Y-%m-%d'))])
+        self.messages_sent_label.config(text=f"Messages Sent Today: {today_messages}")
+        self.scheduled_messages_label.config(text=f"Scheduled Messages: {len(self.scheduled_messages)}")
+    
+    def update_status(self, message):
+        """Update the status bar"""
+        self.status_label.config(text=message)
+        self.root.after(5000, lambda: self.status_label.config(text="Ready to engage with your community! 🚀"))
+    
+    def on_closing(self):
+        """Handle application closing"""
+        self.save_data()
+        self.root.destroy()
+
+    # --- UI Layout Methods ---
+    def setup_styles(self):
+        """Configure custom styles for the application"""
+        style = ttk.Style()
+        
+        # Configure main theme
+        style.theme_use('clam')
+        
+        # Custom colors matching WhatsApp's theme
+        style.configure('Header.TFrame', background='#075e54')
+        style.configure('Header.TLabel', background='#075e54', foreground='white', 
+                        font=('Arial', 16, 'bold'))
+        style.configure('SubHeader.TLabel', font=('Arial', 12, 'bold'))
+        style.configure('Custom.TButton', padding=(10, 5))
+        
+    def create_header(self):
+        """Create the application header"""
+        header_frame = ttk.Frame(self.root, style='Header.TFrame')
+        header_frame.pack(fill='x', pady=(0, 10))
+        
+        title_label = ttk.Label(header_frame, text="🚀 WATRHC WhatsApp Engagement Assistant", 
+                                 style='Header.TLabel')
+        title_label.pack(pady=10)
+        
+        subtitle_label = ttk.Label(header_frame, 
+                                     text="Automate community engagement for 530+ learners across 11 tracks",
+                                     style='Header.TLabel', font=('Arial', 10))
+        subtitle_label.pack()
+    
+    def create_notebook(self):
+        """Create the main tabbed interface"""
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Create tabs
+        self.create_contacts_tab()
+        self.create_dm_automation_tab()
+        self.create_group_scheduler_tab()
+        self.create_logs_tab()
+        self.create_settings_tab()
+    
+    def create_contacts_tab(self):
+        """Create the contacts management tab"""
+        contacts_frame = ttk.Frame(self.notebook)
+        self.notebook.add(contacts_frame, text="📱 Contacts & Labels")
+        
+        # Import section
+        import_frame = ttk.LabelFrame(contacts_frame, text="Import Contacts", padding=10)
+        import_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Button(import_frame, text="📄 Import from CSV", 
+                     command=self.import_contacts_csv, style='Custom.TButton').pack(side='left', padx=5)
+        ttk.Button(import_frame, text="📊 Import from Google Sheets", 
+                     command=self.import_google_sheets, style='Custom.TButton').pack(side='left', padx=5)
+        ttk.Button(import_frame, text="➕ Add Contact Manually", 
+                     command=self.add_contact_manual, style='Custom.TButton').pack(side='left', padx=5)
+        
+        # Contacts display
+        contacts_display_frame = ttk.LabelFrame(contacts_frame, text="Contacts Overview", padding=10)
+        contacts_display_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Treeview for contacts
+        columns = ('Name', 'Phone', 'Labels', 'Last Contact', 'Status')
+        self.contacts_tree = ttk.Treeview(contacts_display_frame, columns=columns, show='headings', height=15)
+        
+        for col in columns:
+            self.contacts_tree.heading(col, text=col)
+            self.contacts_tree.column(col, width=150)
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(contacts_display_frame, orient='vertical', command=self.contacts_tree.yview)
+        h_scrollbar = ttk.Scrollbar(contacts_display_frame, orient='horizontal', command=self.contacts_tree.xview)
+        self.contacts_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        self.contacts_tree.pack(side='left', fill='both', expand=True)
+        v_scrollbar.pack(side='right', fill='y')
+        h_scrollbar.pack(side='bottom', fill='x')
+        
+        # Contact actions
+        actions_frame = ttk.Frame(contacts_display_frame)
+        actions_frame.pack(side='right', fill='y', padx=10)
+        
+        ttk.Button(actions_frame, text="✏️ Edit Contact", command=self.edit_contact).pack(pady=5, fill='x')
+        ttk.Button(actions_frame, text="🏷️ Manage Labels", command=self.manage_labels).pack(pady=5, fill='x')
+        ttk.Button(actions_frame, text="🗑️ Delete Contact", command=self.delete_contact).pack(pady=5, fill='x')
+    
+    def create_dm_automation_tab(self):
+        """Create the DM automation tab"""
+        dm_frame = ttk.Frame(self.notebook)
+        self.notebook.add(dm_frame, text="💬 DM Automation")
+        
+        # Message template section
+        template_frame = ttk.LabelFrame(dm_frame, text="Message Templates", padding=10)
+        template_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(template_frame, text="Select Template:").pack(anchor='w')
+        template_combo = ttk.Combobox(template_frame, textvariable=self.template_var, width=50)
+        template_combo['values'] = ('Welcome Message', 'Check-in Message', 'Course Reminder', 'Follow-up', 'Custom')
+        template_combo.pack(pady=5, fill='x')
+        template_combo.bind('<<ComboboxSelected>>', self.load_template)
+        
+        # Message content
+        ttk.Label(template_frame, text="Message Content:").pack(anchor='w', pady=(10,0))
+        self.message_text = tk.Text(template_frame, height=6, wrap='word')
+        self.message_text.pack(fill='x', pady=5)
+        
+        # Personalization options
+        personalization_frame = ttk.Frame(template_frame)
+        personalization_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(personalization_frame, text="Personalization:").pack(side='left')
+        ttk.Button(personalization_frame, text="Add {name}", 
+                     command=lambda: self.insert_placeholder('{name}')).pack(side='left', padx=5)
+        ttk.Button(personalization_frame, text="Add {track}", 
+                     command=lambda: self.insert_placeholder('{track}')).pack(side='left', padx=5)
+        
+        # Target selection
+        target_frame = ttk.LabelFrame(dm_frame, text="Target Audience", padding=10)
+        target_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(target_frame, text="Send to contacts with labels:").pack(anchor='w')
+        labels_combo = ttk.Combobox(target_frame, textvariable=self.labels_var, width=50)
+        labels_combo['values'] = ('WATRHC', 'UI/UX Learner', 'Python Learner', 'Data Science', 'Follow-up', 'No Response')
+        labels_combo.pack(pady=5, fill='x')
+        
+        # Send options
+        send_frame = ttk.LabelFrame(dm_frame, text="Send Options", padding=10)
+        send_frame.pack(fill='x', padx=10, pady=5)
+        
+        options_frame = ttk.Frame(send_frame)
+        options_frame.pack(fill='x')
+        
+        ttk.Label(options_frame, text="Delay between messages (seconds):").pack(side='left')
+        delay_spinbox = ttk.Spinbox(options_frame, from_=30, to=300, textvariable=self.delay_var, width=10)
+        delay_spinbox.pack(side='left', padx=10)
+        
+        # Send buttons
+        button_frame = ttk.Frame(send_frame)
+        button_frame.pack(fill='x', pady=10)
+        
+        ttk.Button(button_frame, text="📋 Preview Recipients", 
+                     command=self.preview_recipients, style='Custom.TButton').pack(side='left', padx=5)
+        ttk.Button(button_frame, text="📤 Send Now", 
+                     command=self.send_dm_now, style='Custom.TButton').pack(side='left', padx=5)
+        ttk.Button(button_frame, text="⏰ Schedule for Later", 
+                     command=self.schedule_dm, style='Custom.TButton').pack(side='left', padx=5)
+    
+    def create_group_scheduler_tab(self):
+        """Create the group message scheduler tab"""
+        scheduler_frame = ttk.Frame(self.notebook)
+        self.notebook.add(scheduler_frame, text="👥 Group Scheduler")
+        
+        # Group selection
+        group_frame = ttk.LabelFrame(scheduler_frame, text="Select Group", padding=10)
+        group_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(group_frame, text="WhatsApp Group:").pack(anchor='w')
+        group_combo = ttk.Combobox(group_frame, textvariable=self.group_var, width=50)
+        group_combo['values'] = ('Python Class A', 'Python Class B', 'UI/UX Design Track', 'Data Science Track', 
+                                 'Digital Marketing', 'General Announcements')
+        group_combo.pack(pady=5, fill='x')
+        
+        # Message content for groups
+        message_frame = ttk.LabelFrame(scheduler_frame, text="Message Content", padding=10)
+        message_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        ttk.Label(message_frame, text="Message Type:").pack(anchor='w')
+        type_combo = ttk.Combobox(message_frame, textvariable=self.group_msg_type, width=50)
+        type_combo['values'] = ('Daily Tip', 'Weekly Quiz', 'Motivational Message', 'Course Update', 'Custom')
+        type_combo.pack(pady=5, fill='x')
+        
+        ttk.Label(message_frame, text="Message:").pack(anchor='w', pady=(10,0))
+        self.group_message_text = tk.Text(message_frame, height=8, wrap='word')
+        self.group_message_text.pack(fill='both', expand=True, pady=5)
+        
+        # Scheduling options
+        schedule_frame = ttk.LabelFrame(scheduler_frame, text="Schedule Options", padding=10)
+        schedule_frame.pack(fill='x', padx=10, pady=5)
+        
+        schedule_grid = ttk.Frame(schedule_frame)
+        schedule_grid.pack(fill='x')
+        
+        ttk.Label(schedule_grid, text="Date:").grid(row=0, column=0, sticky='w', padx=5)
+        ttk.Entry(schedule_grid, textvariable=self.schedule_date).grid(row=0, column=1, padx=5)
+        
+        ttk.Label(schedule_grid, text="Time:").grid(row=0, column=2, sticky='w', padx=5)
+        ttk.Entry(schedule_grid, textvariable=self.schedule_time).grid(row=0, column=3, padx=5)
+        
+        # Recurring options
+        recurring_frame = ttk.Frame(schedule_frame)
+        recurring_frame.pack(fill='x', pady=10)
+        
+        ttk.Checkbutton(recurring_frame, text="Recurring message", 
+                         variable=self.recurring_var).pack(side='left')
+        
+        ttk.Label(recurring_frame, text="Frequency:").pack(side='left', padx=(20,5))
+        frequency_combo = ttk.Combobox(recurring_frame, textvariable=self.frequency_var, width=15)
+        frequency_combo['values'] = ('Daily', 'Weekly', 'Monthly')
+        frequency_combo.pack(side='left', padx=5)
+        
+        # Schedule button
+        ttk.Button(schedule_frame, text="📅 Schedule Message", 
+                     command=self.schedule_group_message, style='Custom.TButton').pack(pady=10)
+    
+    def create_logs_tab(self):
+        """Create the logs and analytics tab"""
+        logs_frame = ttk.Frame(self.notebook)
+        self.notebook.add(logs_frame, text="📊 Logs & Analytics")
+        
+        # Statistics overview
+        stats_frame = ttk.LabelFrame(logs_frame, text="Engagement Statistics", padding=10)
+        stats_frame.pack(fill='x', padx=10, pady=5)
+        
+        stats_grid = ttk.Frame(stats_frame)
+        stats_grid.pack()
+        
+        # Stats labels
+        self.total_contacts_label = ttk.Label(stats_grid, text="Total Contacts: 0", font=('Arial', 12, 'bold'))
+        self.total_contacts_label.grid(row=0, column=0, padx=20, pady=5)
+        
+        self.messages_sent_label = ttk.Label(stats_grid, text="Messages Sent Today: 0", font=('Arial', 12, 'bold'))
+        self.messages_sent_label.grid(row=0, column=1, padx=20, pady=5)
+        
+        self.scheduled_messages_label = ttk.Label(stats_grid, text="Scheduled Messages: 0", font=('Arial', 12, 'bold'))
+        self.scheduled_messages_label.grid(row=0, column=2, padx=20, pady=5)
+        
+        # Message log
+        log_frame = ttk.LabelFrame(logs_frame, text="Message Log", padding=10)
+        log_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Log treeview
+        log_columns = ('Timestamp', 'Type', 'Recipient', 'Message Preview', 'Status')
+        self.log_tree = ttk.Treeview(log_frame, columns=log_columns, show='headings', height=15)
+        
+        for col in log_columns:
+            self.log_tree.heading(col, text=col)
+            self.log_tree.column(col, width=150)
+        
+        log_scrollbar = ttk.Scrollbar(log_frame, orient='vertical', command=self.log_tree.yview)
+        self.log_tree.configure(yscrollcommand=log_scrollbar.set)
+        
+        self.log_tree.pack(side='left', fill='both', expand=True)
+        log_scrollbar.pack(side='right', fill='y')
+        
+        # Export options
+        export_frame = ttk.Frame(log_frame)
+        export_frame.pack(side='bottom', fill='x', pady=10)
+        
+        ttk.Button(export_frame, text="📄 Export Log to CSV", 
+                     command=self.export_log).pack(side='left', padx=5)
+        ttk.Button(export_frame, text="🗑️ Clear Log", 
+                     command=self.clear_log).pack(side='left', padx=5)
+    
+    def create_settings_tab(self):
+        """Create the settings tab"""
+        settings_frame = ttk.Frame(self.notebook)
+        self.notebook.add(settings_frame, text="⚙️ Settings")
+        
+        # WhatsApp Web settings
+        whatsapp_frame = ttk.LabelFrame(settings_frame, text="WhatsApp Web Settings", padding=10)
+        whatsapp_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(whatsapp_frame, text="Browser:").pack(anchor='w')
+        browser_combo = ttk.Combobox(whatsapp_frame, textvariable=self.browser_var)
+        browser_combo['values'] = ('Chrome', 'Firefox', 'Edge')
+        browser_combo.pack(pady=5, fill='x')
+        
+        ttk.Label(whatsapp_frame, text="Wait time for page load (seconds):").pack(anchor='w', pady=(10,0))
+        ttk.Spinbox(whatsapp_frame, from_=5, to=30, textvariable=self.wait_time_var).pack(pady=5, fill='x')
+        
+        # Automation settings
+        automation_frame = ttk.LabelFrame(settings_frame, text="Automation Settings", padding=10)
+        automation_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(automation_frame, text="Default delay between messages (seconds):").pack(anchor='w')
+        ttk.Spinbox(automation_frame, from_=30, to=300, textvariable=self.default_delay_var).pack(pady=5, fill='x')
+        
+        ttk.Label(automation_frame, text="Maximum messages per session:").pack(anchor='w', pady=(10,0))
+        ttk.Spinbox(automation_frame, from_=10, to=200, textvariable=self.max_messages_var).pack(pady=5, fill='x')
+        
+        # Data settings
+        data_frame = ttk.LabelFrame(settings_frame, text="Data Management", padding=10)
+        data_frame.pack(fill='x', padx=10, pady=5)
+        
+        ttk.Button(data_frame, text="🔄 Backup Data", command=self.backup_data).pack(pady=5, fill='x')
+        ttk.Button(data_frame, text="📥 Restore Data", command=self.restore_data).pack(pady=5, fill='x')
+        ttk.Button(data_frame, text="🗑️ Reset All Data", command=self.reset_data).pack(pady=5, fill='x')
+        
+        # Save settings button
+        ttk.Button(settings_frame, text="💾 Save Settings", 
+                     command=self.save_settings, style='Custom.TButton').pack(pady=20)
+    
+    def create_status_bar(self):
+        """Create the status bar"""
+        self.status_bar = ttk.Frame(self.root)
+        self.status_bar.pack(side='bottom', fill='x')
+        
+        self.status_label = ttk.Label(self.status_bar, text="Ready to engage with your community! 🚀")
+        self.status_label.pack(side='left', padx=10, pady=5)
+        
+        # Connection status
+        self.connection_label = ttk.Label(self.status_bar, text="WhatsApp: Disconnected ❌")
+        self.connection_label.pack(side='right', padx=10, pady=5)
+    
+    # --- Event Handlers / Callbacks ---
+    def import_contacts_csv(self):
+        file_path = filedialog.askopenfilename(
+            title="Select CSV file",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, 'r', newline='', encoding='utf-8') as file:
+                    reader = csv.DictReader(file)
+                    for row in reader:
+                        # Basic validation for essential keys, add more as needed
+                        if 'Name' in row and 'Phone' in row:
+                            self.contacts_data.append(row)
+                        else:
+                            messagebox.showwarning("CSV Format Warning", 
+                                "Skipped a row in CSV due to missing 'Name' or 'Phone' column.")
+                self.refresh_contacts_display()
+                self.update_status(f"Contacts imported successfully! Added {len(self.contacts_data)} contacts.")
+                messagebox.showinfo("Success", f"Imported {len(self.contacts_data)} contacts from CSV")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to import CSV: {str(e)}")
+    
+    def import_google_sheets(self):
+        messagebox.showinfo("Google Sheets", "Google Sheets integration will be implemented in the next version!")
+    
+    def add_contact_manual(self):
+        self.open_contact_dialog()
+    
+    def open_contact_dialog(self, contact=None):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Add/Edit Contact")
+        dialog.geometry("400x300")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Contact form
+        ttk.Label(dialog, text="Name:").pack(anchor='w', padx=10, pady=5)
+        name_var = tk.StringVar(value=contact.get('Name', '') if contact else '')
+        ttk.Entry(dialog, textvariable=name_var).pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(dialog, text="Phone:").pack(anchor='w', padx=10, pady=5)
+        phone_var = tk.StringVar(value=contact.get('Phone', '') if contact else '')
+        ttk.Entry(dialog, textvariable=phone_var).pack(fill='x', padx=10, pady=5)
+        
+        ttk.Label(dialog, text="Labels (comma-separated):").pack(anchor='w', padx=10, pady=5)
+        labels_var = tk.StringVar(value=contact.get('Labels', '') if contact else '')
+        ttk.Entry(dialog, textvariable=labels_var).pack(fill='x', padx=10, pady=5)
+        
+        def save_contact():
+            # Basic validation
+            if not name_var.get().strip() or not phone_var.get().strip():
+                messagebox.showwarning("Input Error", "Name and Phone cannot be empty.")
+                return
+
+            new_contact = {
+                'Name': name_var.get().strip(),
+                'Phone': phone_var.get().strip(),
+                'Labels': labels_var.get().strip(),
+                'Last Contact': contact.get('Last Contact', 'Never') if contact else 'Never', # Preserve last contact or set new
+                'Status': contact.get('Status', 'Active') if contact else 'Active' # Preserve status or set new
+            }
+            if contact:
+                # Edit existing
+                index = self.contacts_data.index(contact)
+                self.contacts_data[index] = new_contact
+            else:
+                # Add new, check for duplicates (by phone number for simplicity)
+                if any(c['Phone'] == new_contact['Phone'] for c in self.contacts_data):
+                    messagebox.showwarning("Duplicate Contact", "A contact with this phone number already exists.")
+                    return
+                self.contacts_data.append(new_contact)
+            
+            self.refresh_contacts_display()
+            self.save_data() # Save data immediately after adding/editing a contact
+            dialog.destroy()
+        
+        ttk.Button(dialog, text="Save", command=save_contact).pack(pady=20)
+    
+    def edit_contact(self):
+        selection = self.contacts_tree.selection()
+        if selection:
+            # Get the actual dictionary object from self.contacts_data
+            # This is more robust than relying solely on treeview values for editing
+            selected_item_values = self.contacts_tree.item(selection[0])['values']
+            contact_name = selected_item_values[0]
+            contact_phone = selected_item_values[1] # Assuming phone is a more unique identifier
+
+            # Find the actual contact dictionary in your data list
+            contact_to_edit = next((c for c in self.contacts_data if c.get('Name') == contact_name and c.get('Phone') == contact_phone), None)
+
+            if contact_to_edit:
+                self.open_contact_dialog(contact_to_edit)
+            else:
+                messagebox.showwarning("Error", "Selected contact not found in data.")
+        else:
+            messagebox.showwarning("Selection Error", "Please select a contact to edit.")
+
+    def delete_contact(self):
+        selection = self.contacts_tree.selection()
+        if selection:
+            selected_item_values = self.contacts_tree.item(selection[0])['values']
+            contact_name = selected_item_values[0]
+            contact_phone = selected_item_values[1] # Use phone for more unique identification
+
+            if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete contact '{contact_name}'?"):
+                # Filter out the contact to delete based on name AND phone for uniqueness
+                self.contacts_data = [c for c in self.contacts_data if not (c.get('Name') == contact_name and c.get('Phone') == contact_phone)]
+                self.refresh_contacts_display()
+                self.save_data() # Save data immediately after deleting
+                self.update_status(f"Contact '{contact_name}' deleted.")
+        else:
+            messagebox.showwarning("Selection Error", "Please select a contact to delete.")
+
+    def manage_labels(self):
+        messagebox.showinfo("Labels", "Label management feature coming soon!")
+    
+    def load_template(self, event=None):
+        templates = {
+            'Welcome Message': "Hi {name}! 👋🏼 Welcome to the RootHub Community! I'm Hannah, your community manager. I'm here to support you on your {track} learning journey. Feel free to reach out if you have any questions!",
+            'Check-in Message': "Hi {name}! 👋🏼 Just checking in from the RootHub Community. How's your {track} learning journey going so far? Any challenges I can help you with?",
+            'Course Reminder': "Hey {name}! 📚 Don't forget about today's {track} session. Looking forward to seeing your progress!",
+            'Follow-up': "Hi {name}! 🤔 I noticed you haven't been active lately in our {track} community. Everything okay? I'm here if you need any support!",
+            'Custom': "" # Allow custom template to clear the field
+        }
+        
+        template = templates.get(self.template_var.get(), '')
+        self.message_text.delete(1.0, tk.END)
+        self.message_text.insert(1.0, template)
+    
+    def insert_placeholder(self, placeholder):
+        self.message_text.insert(tk.INSERT, placeholder)
+    
+    def preview_recipients(self):
+        label_filter = self.labels_var.get().strip()
+        if not label_filter:
+            messagebox.showwarning("Warning", "Please select a label filter first.")
+            return
+        
+        recipients = [c for c in self.contacts_data if label_filter in c.get('Labels', '').split(',')] # Split labels by comma
+        
+        preview_window = tk.Toplevel(self.root)
+        preview_window.title(f"Recipients for '{label_filter}' label")
+        preview_window.geometry("400x300")
+        preview_window.transient(self.root)
+        preview_window.grab_set() # Make it modal
+
+        listbox_frame = ttk.Frame(preview_window)
+        listbox_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+        listbox = tk.Listbox(listbox_frame)
+        listbox.pack(side='left', fill='both', expand=True)
+
+        scrollbar = ttk.Scrollbar(listbox_frame, orient="vertical", command=listbox.yview)
+        scrollbar.pack(side='right', fill='y')
+        listbox.config(yscrollcommand=scrollbar.set)
+        
+        if recipients:
+            for contact in recipients:
+                listbox.insert(tk.END, f"{contact.get('Name', 'N/A')} - {contact.get('Phone', 'N/A')}")
+        else:
+            listbox.insert(tk.END, "No recipients found for this label.")
+        
+        ttk.Label(preview_window, text=f"Total recipients: {len(recipients)}").pack(pady=5)
+        ttk.Button(preview_window, text="Close", command=preview_window.destroy).pack(pady=5)
+    
+    def send_dm_now(self):
+        message_content = self.message_text.get(1.0, tk.END).strip()
+        label_filter = self.labels_var.get().strip()
+
+        if not message_content:
+            messagebox.showwarning("Warning", "Please enter a message.")
+            return
+        if not label_filter:
+            messagebox.showwarning("Warning", "Please select a label filter for recipients.")
+            return
+
+        recipients = [c for c in self.contacts_data if label_filter in c.get('Labels', '').split(',')]
+
+        if not recipients:
+            messagebox.showwarning("No Recipients", "No contacts found with the selected label for DM automation.")
+            return
+
+        if not messagebox.askyesno("Confirm Send", f"You are about to send a DM to {len(recipients)} contacts. Continue?"):
+            return
+
+        messagebox.showinfo("Send DM", "DM automation started! Check the logs tab for progress. This process will run in the background.")
+        self.update_status("Sending DMs... This may take a while")
+        
+        # --- Placeholder for actual automation logic ---
+        # In a real scenario, you'd start a new thread here to run the Selenium automation
+        # so the UI doesn't freeze.
+        # Example:
+        # from threading import Thread
+        # automation_thread = Thread(target=self.run_dm_automation_in_background, args=(recipients, message_content, int(self.delay_var.get())))
+        # automation_thread.daemon = True # Allows thread to exit when main program exits
+        # automation_thread.start()
+        
+        # Simulate sending for UI demonstration
+        for i, contact in enumerate(recipients):
+            # Simulate personalization
+            personalized_message = message_content.replace('{name}', contact.get('Name', 'Learner')).replace('{track}', contact.get('Labels', 'track').split(',')[0].strip())
+            
+            log_entry = {
+                'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'Type': 'DM',
+                'Recipient': f"{contact.get('Name', 'Unknown')} ({contact.get('Phone', 'N/A')})",
+                'Message': personalized_message,
+                'Status': 'Simulated Sent' # Will be 'Sent' or 'Failed' in real automation
+            }
+            self.message_log.append(log_entry)
+            self.refresh_log_display()
+            self.update_status(f"Simulating DM to {contact.get('Name')}...")
+            self.root.update_idletasks() # Force UI update
+            # time.sleep(1) # Simulate delay in UI for demo; actual delay in automation thread
+
+        self.update_status(f"Simulated sending DMs to {len(recipients)} contacts. Check logs.")
+        self.save_data() # Save data after simulation
+    
+    def schedule_dm(self):
+        messagebox.showinfo("Schedule DM", "DM scheduling feature will be implemented!")
+    
+    def schedule_group_message(self):
+        group_name = self.group_var.get().strip()
+        message_content = self.group_message_text.get(1.0, tk.END).strip()
+        schedule_date_str = self.schedule_date.get().strip()
+        schedule_time_str = self.schedule_time.get().strip()
+        recurring = self.recurring_var.get()
+        frequency = self.frequency_var.get().strip() if recurring else None
+
+        if not group_name or not message_content:
+            messagebox.showwarning("Warning", "Please select a group and enter a message.")
+            return
+        
+        try:
+            # Basic date/time validation
+            scheduled_datetime_str = f"{schedule_date_str} {schedule_time_str}"
+            scheduled_dt = datetime.strptime(scheduled_datetime_str, '%Y-%m-%d %H:%M')
+            if scheduled_dt < datetime.now():
+                if not messagebox.askyesno("Past Time", "The scheduled time is in the past. Do you want to schedule it for the next occurrence (e.g., tomorrow at the same time)?"):
+                    return
+                # Adjust to next occurrence, e.g., tomorrow
+                scheduled_dt = scheduled_dt + timedelta(days=1)
+                self.schedule_date.set(scheduled_dt.strftime("%Y-%m-%d"))
+                scheduled_datetime_str = scheduled_dt.strftime('%Y-%m-%d %H:%M:%S') # Update for display
+
+        except ValueError:
+            messagebox.showerror("Invalid Date/Time", "Please enter a valid date (YYYY-MM-DD) and time (HH:MM).")
+            return
+        
+        if recurring and not frequency:
+            messagebox.showwarning("Warning", "Please select a frequency for recurring messages.")
+            return
+
+        scheduled_msg = {
+            'group': group_name,
+            'message': message_content,
+            'date_time': scheduled_datetime_str, # Store combined for easier sorting/processing
+            'recurring': recurring,
+            'frequency': frequency
+        }
+        
+        self.scheduled_messages.append(scheduled_msg)
+        self.save_data() # Save scheduled message immediately
+        self.refresh_all_displays() # Update the scheduled messages count
+        messagebox.showinfo("Success", "Message scheduled successfully!")
+        self.update_status(f"Message scheduled for {scheduled_msg['group']} at {scheduled_msg['date_time']}")
+        
+    def export_log(self):
+        file_path = filedialog.asksaveasfilename(
+            title="Export log",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                # Ensure all log entries have all headers, providing empty string if missing
+                # This prevents DictWriter from failing if a key is absent in some log entries
+                fieldnames = ['Timestamp', 'Type', 'Recipient', 'Message', 'Status']
+                processed_log = []
+                for entry in self.message_log:
+                    processed_entry = {k: entry.get(k, '') for k in fieldnames}
+                    processed_log.append(processed_entry)
+
+                with open(file_path, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(processed_log)
+                messagebox.showinfo("Success", "Log exported successfully!")
+                self.update_status(f"Log exported to {file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to export log: {str(e)}")
+    
+    def clear_log(self):
+        if messagebox.askyesno("Confirm", "Clear all log entries? This action cannot be undone."):
+            self.message_log.clear()
+            self.refresh_log_display()
+            self.save_data() # Save empty log
+            self.update_status("Message log cleared.")
+    
+    def backup_data(self):
+        data = {
+            'contacts': self.contacts_data,
+            'scheduled_messages': self.scheduled_messages,
+            'message_log': self.message_log
+        }
+        
+        file_path = filedialog.asksaveasfilename(
+            title="Backup data",
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    json.dump(data, file, indent=2)
+                messagebox.showinfo("Success", "Data backed up successfully!")
+                self.update_status(f"Data backed up to {file_path}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to backup data: {str(e)}")
+    
+    def restore_data(self):
+        file_path = filedialog.askopenfilename(
+            title="Restore data",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        
+        if file_path:
+            if not messagebox.askyesno("Confirm Restore", "Restoring data will OVERWRITE all current data. Are you sure?"):
+                return
+
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+                
+                self.contacts_data = data.get('contacts', [])
+                self.scheduled_messages = data.get('scheduled_messages', [])
+                self.message_log = data.get('message_log', [])
+                
+                self.refresh_all_displays()
+                self.save_data() # Save the restored data immediately
+                messagebox.showinfo("Success", "Data restored successfully!")
+                self.update_status(f"Data restored from {file_path}")
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "Selected file is not a valid JSON backup file.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to restore data: {str(e)}")
+    
+
+class WhatsAppAutomationEngine:
+    """
+    This class will handle the actual WhatsApp automation using Selenium.
+    Placeholder for the Selenium-based automation logic.
+    """
+    def __init__(self, ui_reference):
+        self.ui = ui_reference
+        self.driver = None # Selenium WebDriver instance
+        self.is_connected = False
+    
+    def connect_whatsapp(self):
+        """Connect to WhatsApp Web, initialize Selenium WebDriver."""
+        self.ui.update_status("Connecting to WhatsApp Web...")
+        self.ui.connection_label.config(text="WhatsApp: Connecting... 🟡")
+        # --- Placeholder for Selenium WebDriver initialization and QR code handling ---
+        # from selenium import webdriver
+        # from selenium.webdriver.chrome.service import Service as ChromeService
+        # from webdriver_manager.chrome import ChromeDriverManager
+        # from selenium.webdriver.support.ui import WebDriverWait
+        # from selenium.webdriver.support import expected_conditions as EC
+        # from selenium.webdriver.common.by import By
+        # import time
+        
+        # try:
+        #     # Use persistent user data directory (as discussed)
+        #     user_data_dir = "path/to/your/chrome/profile" # IMPORTANT: Configure this path
+        #     options = webdriver.ChromeOptions()
+        #     options.add_argument(f"user-data-dir={user_data_dir}")
+        #     options.add_argument("--disable-blink-features=AutomationControlled")
+        #     options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        #     options.add_experimental_option("useAutomationExtension", False)
+        #     options.add_argument("--disable-infobars")
+        #     options.add_argument("--disable-notifications")
+
+        #     service = ChromeService(ChromeDriverManager().install())
+        #     self.driver = webdriver.Chrome(service=service, options=options)
+        #     self.driver.get("https://web.whatsapp.com/")
+            
+        #     # Wait for WhatsApp Web to load (e.g., search input presence)
+        #     WebDriverWait(self.driver, int(self.ui.wait_time_var.get())).until(
+        #         EC.presence_of_element_located((By.XPATH, '//div[@contenteditable="true"][@data-tab="3"]'))
+        #     )
+        #     self.is_connected = True
+        #     self.ui.update_status("Connected to WhatsApp Web! ✅")
+        #     self.ui.connection_label.config(text="WhatsApp: Connected ✅")
+        # except Exception as e:
+        #     self.is_connected = False
+        #     self.ui.update_status(f"Connection failed: {str(e)} ❌")
+        #     self.ui.connection_label.config(text="WhatsApp: Disconnected ❌")
+        #     if self.driver:
+        #         self.driver.quit()
+
+        # Simulate connection for UI demo
+        self.is_connected = True
+        self.ui.update_status("Simulated: Connected to WhatsApp Web! ✅")
+        self.ui.connection_label.config(text="WhatsApp: Connected ✅")
+    
+    def send_dm(self, contact, message):
+        """Send a direct message to a contact via Selenium."""
+        if not self.is_connected:
+            self.ui.update_status("Error: WhatsApp not connected. Please connect first.")
+            return False
+        
+        # --- Placeholder for actual Selenium DM sending logic ---
+        # Example (requires driver initialized):
+        # try:
+        #     # Search for contact
+        #     search_box = self.ui.wait.until(EC.presence_of_element_located((By.XPATH, 'xpath_to_search_box')))
+        #     search_box.clear()
+        #     search_box.send_keys(contact['Name'])
+        #     time.sleep(2) # Wait for search results
+        #     
+        #     # Click on contact (may need to be more specific, e.g., by phone number in search results)
+        #     contact_element = self.ui.wait.until(EC.element_to_be_clickable((By.XPATH, f'//span[@title="{contact["Name"]}"]')))
+        #     contact_element.click()
+        #     
+        #     # Type and send message
+        #     message_box = self.ui.wait.until(EC.presence_of_element_located((By.XPATH, 'xpath_to_message_input')))
+        #     message_box.send_keys(message)
+        #     send_button = self.ui.wait.until(EC.element_to_be_clickable((By.XPATH, 'xpath_to_send_button')))
+        #     send_button.click()
+        #     
+        #     self.ui.update_status(f"Message sent to {contact['Name']}.")
+        #     return True
+        # except Exception as e:
+        #     self.ui.update_status(f"Failed to send DM to {contact['Name']}: {str(e)}")
+        #     return False
+        
+        self.ui.update_status(f"Simulated: Sending DM to {contact.get('Name')}...")
+        return True # Simulate success
+    
+    def send_group_message(self, group_name, message):
+        """Send a message to a group via Selenium."""
+        if not self.is_connected:
+            self.ui.update_status("Error: WhatsApp not connected. Please connect first.")
+            return False
+        
+        # --- Placeholder for actual Selenium group message sending logic ---
+        self.ui.update_status(f"Simulated: Sending group message to {group_name}...")
+        return True # Simulate success
+    
+    def get_contact_labels(self, contact_name):
+        """Get labels for a contact from WhatsApp Business via Selenium (highly complex/unreliable)."""
+        # --- Placeholder for label extraction ---
+        self.ui.update_status(f"Simulated: Attempting to get labels for {contact_name}...")
+        return "Simulated Label"
+
+
+# --- Main Application Entry Point ---
+def main():
+    root = tk.Tk()
+    app = WhatsAppEngagementUI(root)
+    
+    # Initialize the automation engine and pass UI reference
+    # You'll likely want a button in the UI to trigger this connection
+    automation_engine = WhatsAppAutomationEngine(app) 
+    
+    # Example: A button to connect to WhatsApp in the UI (e.g., in Settings tab)
+    # app.connect_button = ttk.Button(app.whatsapp_frame, text="Connect to WhatsApp", command=automation_engine.connect_whatsapp)
+    # app.connect_button.pack(pady=10)
+
+    # Handle window closing
+    root.protocol("WM_DELETE_WINDOW", app.on_closing)
+    
+    # Center the window (must be called after mainloop, or after first .update_idletasks())
+    root.update_idletasks() # Ensure geometry info is up-to-date
+    x = (root.winfo_screenwidth() - root.winfo_width()) // 2
+    y = (root.winfo_screenheight() - root.winfo_height()) // 2
+    root.geometry(f"+{x}+{y}")
+    
+    # Start the application
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
