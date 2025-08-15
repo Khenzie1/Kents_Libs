@@ -1,5 +1,3 @@
-
-
 {% extends 'base.html' %}
 
 {% block title %}Dashboard - WATRHC WhatsApp Automation{% endblock %}
@@ -36,7 +34,7 @@
                         <div class="h5 mb-0 font-weight-bold" id="totalContactsDisplay">{{ total_contacts }}</div>
                     </div>
                     <div class="col-auto">
-                        <i class="fas fa-users fa-2x"></i>
+                        <i class="fas fa-users fa-1x"></i>
                     </div>
                 </div>
             </div>
@@ -54,7 +52,7 @@
                         <div class="h5 mb-0 font-weight-bold" id="pendingMessagesDisplay">{{ pending_messages }}</div>
                     </div>
                     <div class="col-auto">
-                        <i class="fas fa-clock fa-2x"></i>
+                        <i class="fas fa-clock fa-1x"></i>
                     </div>
                 </div>
             </div>
@@ -72,7 +70,7 @@
                         <div class="h5 mb-0 font-weight-bold" id="messagesTodayDisplay">{{ messages_today }}</div>
                     </div>
                     <div class="col-auto">
-                        <i class="fas fa-paper-plane fa-2x"></i>
+                        <i class="fas fa-paper-plane fa-1x"></i>
                     </div>
                 </div>
             </div>
@@ -90,7 +88,7 @@
                         <div class="h5 mb-0 font-weight-bold" id="successRateDisplay">{{ success_rate }}%</div>
                     </div>
                     <div class="col-auto">
-                        <i class="fas fa-check-circle fa-2x"></i>
+                        <i class="fas fa-check-circle fa-1x"></i>
                     </div>
                 </div>
             </div>
@@ -303,213 +301,3 @@
     });
 </script>
 {% endblock %}
-
-
-
-{% comment %} {% extends 'base.html' %}
-
-{% block title %}Dashboard - WATRHC WhatsApp Automation{% endblock %}
-
-{% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-    <h1 class="h2">
-        <i class="fas fa-tachometer-alt text-primary me-2"></i>
-        Dashboard
-    </h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <a href="{% url 'send_bulk_dm' %}" class="btn btn-primary">
-                <i class="fas fa-paper-plane me-1"></i>
-                Send Bulk DM
-            </a>
-            <a href="{% url 'schedule_message' %}" class="btn btn-outline-primary">
-                <i class="fas fa-clock me-1"></i>
-                Schedule Message
-            </a>
-        </div>
-    </div>
-</div>
-
-<!-- Statistics Cards -->
-<div class="row mb-4">
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stats-card h-100">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-uppercase mb-1">
-                            Total Active Contacts
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold">{{ total_contacts }}</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-users fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stats-card h-100">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-uppercase mb-1">
-                            Pending Messages
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold">{{ pending_messages }}</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-clock fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stats-card h-100">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-uppercase mb-1">
-                            Messages Today
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold">
-                            {{ recent_logs|length }}
-                        </div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-paper-plane fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card stats-card h-100">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-xs font-weight-bold text-uppercase mb-1">
-                            Success Rate
-                        </div>
-                        <div class="h5 mb-0 font-weight-bold">95%</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-check-circle fa-2x"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <!-- Contact Distribution -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-pie me-2"></i>
-                    Contact Distribution by Label
-                </h5>
-            </div>
-            <div class="card-body">
-                {% for stat in label_stats %}
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="badge bg-primary">{{ stat.label }}</span>
-                    <span class="fw-bold">{{ stat.count }}</span>
-                </div>
-                {% empty %}
-                <p class="text-muted">No contacts found</p>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Recent Activity -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-history me-2"></i>
-                    Recent Message Activity
-                </h5>
-            </div>
-            <div class="card-body">
-                {% for log in recent_logs %}
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div>
-                        <strong>{{ log.recipient_name }}</strong>
-                        <br>
-                        <small class="text-muted">{{ log.sent_at|date:"M d, H:i" }}</small>
-                    </div>
-                    <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'failed' %}danger{% else %}warning{% endif %}">
-                        {{ log.status|title }}
-                    </span>
-                </div>
-                {% empty %}
-                <p class="text-muted">No recent activity</p>
-                {% endfor %}
-                
-                <div class="text-center mt-3">
-                    <a href="{% url 'message_logs' %}" class="btn btn-sm btn-outline-primary">
-                        View All Logs
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Quick Actions -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-bolt me-2"></i>
-                    Quick Actions
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <div class="d-grid">
-                            <a href="{% url 'send_bulk_dm' %}" class="btn btn-primary">
-                                <i class="fas fa-users me-2"></i>
-                                Send Welcome Messages
-                            </a>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="d-grid">
-                            <a href="{% url 'schedule_message' %}" class="btn btn-info">
-                                <i class="fas fa-calendar me-2"></i>
-                                Schedule Weekly Check-in
-                            </a>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="d-grid">
-                            <a href="{% url 'admin:whatsapp_automation_contact_changelist' %}" class="btn btn-success">
-                                <i class="fas fa-plus me-2"></i>
-                                Add New Contacts
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}   {% endcomment %}
-
-
-
-
-
-
