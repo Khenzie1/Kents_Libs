@@ -1,3 +1,4 @@
 django
 uuid
 gunicorn
+python-dotenv
