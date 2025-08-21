@@ -1,2 +1,3 @@
 django
 uuid
+gunicorn
