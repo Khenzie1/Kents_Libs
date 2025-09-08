@@ -1,0 +1,809 @@
+import tkinter as tk
+from tkinter import filedialog, ttk, colorchooser, messagebox
+from PIL import Image, ImageTk, ImageDraw, ImageFont
+import cv2
+import numpy as np
+import os
+import threading
+from pathlib import Path
+import json
+
+class EnhancedWatermarkApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("🎨 Enhanced Media Watermark Processor")
+        self.root.geometry("900x800")
+        self.root.configure(bg='#2c3e50')
+        
+        # Configure style with dark theme
+        self.setup_styles()
+        
+        # Variables
+        self.logo_path = tk.StringVar()
+        self.input_paths = []  # Changed to support multiple files/folders
+        self.input_display = tk.StringVar(value="No files/folders selected")
+        self.output_dir = tk.StringVar()
+        self.position = tk.StringVar(value="bottom-right")
+        self.bg_color = tk.StringVar(value="#FFFFFF")
+        self.logo_opacity = tk.IntVar(value=100)
+        self.logo_size = tk.IntVar(value=15)  # Changed default to be more reasonable
+        self.margin_x = tk.IntVar(value=20)
+        self.margin_y = tk.IntVar(value=20)
+        self.processing = False
+        
+        # New variables for enhanced features
+        self.tolerance = tk.IntVar(value=30)
+        self.maintain_aspect = tk.BooleanVar(value=True)
+        self.batch_rename = tk.BooleanVar(value=False)
+        self.prefix = tk.StringVar(value="watermarked_")
+        
+        # Logo preview
+        self.logo_preview = None
+        self.preview_image = None
+        
+        # Settings file
+        self.settings_file = "watermark_settings.json"
+        
+        self.create_widgets()
+        self.load_settings()
+        
+    def setup_styles(self):
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Define modern color scheme
+        bg_color = '#2c3e50'
+        card_bg = '#34495e'
+        primary_color = '#3498db'
+        success_color = '#2ecc71'
+        danger_color = '#e74c3c'
+        text_color = '#ecf0f1'
+        
+        # Configure styles
+        style.configure('Card.TFrame', background=card_bg, relief='raised', borderwidth=2)
+        style.configure('Title.TLabel', background=bg_color, foreground=text_color,
+                       font=('Arial', 20, 'bold'))
+        style.configure('Heading.TLabel', background=card_bg, foreground=text_color,
+                       font=('Arial', 12, 'bold'))
+        style.configure('Info.TLabel', background=card_bg, foreground='#bdc3c7',
+                       font=('Arial', 9))
+        
+        # Button styles
+        style.configure('Primary.TButton', font=('Arial', 10, 'bold'),
+                        background=primary_color)
+        style.configure('Success.TButton', font=('Arial', 12, 'bold'),
+                       background=success_color)
+        style.configure('Danger.TButton', font=('Arial', 10),
+                        background=danger_color)
+        
+        # Entry and Combobox styles
+        style.configure('Modern.TEntry', fieldbackground='#ecf0f1',
+                       borderwidth=2, focuscolor=primary_color)
+        style.configure('Modern.TCombobox', fieldbackground='#ecf0f1',
+                       borderwidth=2, focuscolor=primary_color)
+        
+    def create_widgets(self):
+        # Main scrollable frame
+        canvas = tk.Canvas(self.root, bg='#2c3e50', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#2c3e50')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Title
+        title_label = ttk.Label(scrollable_frame, text="🎨 Enhanced Media Watermark Processor",
+                              style='Title.TLabel')
+        title_label.pack(pady=(0, 20))
+        
+        # Create sections
+        self.create_file_selection_section(scrollable_frame)
+        self.create_logo_settings_section(scrollable_frame)
+        self.create_position_settings_section(scrollable_frame)
+        self.create_preview_section(scrollable_frame)
+        self.create_batch_settings_section(scrollable_frame)
+        self.create_process_section(scrollable_frame)
+        
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+    def create_file_selection_section(self, parent):
+        # File Selection Frame
+        file_frame = ttk.Frame(parent, style='Card.TFrame')
+        file_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        # Section title
+        ttk.Label(file_frame, text="📁 File Selection", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(file_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        # Logo file selection
+        logo_section = tk.Frame(content, bg='#34495e')
+        logo_section.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(logo_section, text="Logo File:", style='Info.TLabel').pack(anchor=tk.W)
+        
+        logo_frame = tk.Frame(logo_section, bg='#34495e')
+        logo_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        self.logo_entry = tk.Entry(logo_frame, textvariable=self.logo_path,
+                                  font=('Arial', 10), bg='#ecf0f1')
+        self.logo_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        ttk.Button(logo_frame, text="📂 Browse Logo",
+                  command=self.browse_logo, style='Primary.TButton').pack(side=tk.RIGHT)
+        
+        # Input files/folders selection (Enhanced)
+        input_section = tk.Frame(content, bg='#34495e')
+        input_section.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(input_section, text="Input Files/Folders:", style='Info.TLabel').pack(anchor=tk.W)
+        
+        # Display selected files
+        self.input_display_label = tk.Label(input_section, textvariable=self.input_display,
+                                           font=('Arial', 9), bg='#ecf0f1', fg='#2c3e50',
+                                           height=3, wraplength=600, justify=tk.LEFT)
+        self.input_display_label.pack(fill=tk.X, pady=(5, 5))
+        
+        # Input selection buttons
+        input_buttons = tk.Frame(input_section, bg='#34495e')
+        input_buttons.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Button(input_buttons, text="📁 Add Folder",
+                  command=self.add_folder, style='Primary.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(input_buttons, text="📄 Add Files",
+                  command=self.add_files, style='Primary.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        
+        ttk.Button(input_buttons, text="🗑️ Clear All",
+                  command=self.clear_inputs, style='Danger.TButton').pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Output directory
+        output_section = tk.Frame(content, bg='#34495e')
+        output_section.pack(fill=tk.X)
+        
+        ttk.Label(output_section, text="Output Directory:", style='Info.TLabel').pack(anchor=tk.W)
+        
+        output_frame = tk.Frame(output_section, bg='#34495e')
+        output_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        self.output_entry = tk.Entry(output_frame, textvariable=self.output_dir,
+                                    font=('Arial', 10), bg='#ecf0f1')
+        self.output_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        ttk.Button(output_frame, text="📂 Browse Output",
+                  command=self.browse_output, style='Primary.TButton').pack(side=tk.RIGHT)
+        
+    def create_logo_settings_section(self, parent):
+        # Logo Settings Frame
+        settings_frame = ttk.Frame(parent, style='Card.TFrame')
+        settings_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        ttk.Label(settings_frame, text="⚙️ Logo Settings", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(settings_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        # Top row: Background color removal
+        color_section = tk.Frame(content, bg='#34495e')
+        color_section.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(color_section, text="Background Color Removal:", style='Info.TLabel').pack(anchor=tk.W)
+        
+        color_frame = tk.Frame(color_section, bg='#34495e')
+        color_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        tk.Label(color_frame, text="Color:", bg='#34495e', fg='#bdc3c7').pack(side=tk.LEFT)
+        
+        self.color_entry = tk.Entry(color_frame, textvariable=self.bg_color,
+                                   width=8, font=('Arial', 10), bg='#ecf0f1')
+        self.color_entry.pack(side=tk.LEFT, padx=(5, 5))
+        
+        self.color_preview = tk.Label(color_frame, width=3, height=1,
+                                     bg=self.bg_color.get(), relief='solid', bd=2)
+        self.color_preview.pack(side=tk.LEFT, padx=(5, 10))
+        
+        ttk.Button(color_frame, text="🎨 Pick Color",
+                  command=self.pick_color, style='Primary.TButton').pack(side=tk.LEFT, padx=(0, 15))
+        
+        tk.Label(color_frame, text="Tolerance:", bg='#34495e', fg='#bdc3c7').pack(side=tk.LEFT)
+        self.tolerance_scale = tk.Scale(color_frame, from_=1, to=100, orient=tk.HORIZONTAL,
+                                       variable=self.tolerance, bg='#34495e', fg='#ecf0f1',
+                                       length=100)
+        self.tolerance_scale.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Sliders row
+        sliders_frame = tk.Frame(content, bg='#34495e')
+        sliders_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Size slider
+        size_frame = tk.Frame(sliders_frame, bg='#34495e')
+        size_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 20))
+        
+        ttk.Label(size_frame, text="Logo Size (% of image width):", style='Info.TLabel').pack(anchor=tk.W)
+        self.size_scale = tk.Scale(size_frame, from_=5, to=50, orient=tk.HORIZONTAL,
+                                  variable=self.logo_size, bg='#34495e', fg='#ecf0f1')
+        self.size_scale.pack(fill=tk.X, pady=(5, 0))
+        
+        # Opacity slider
+        opacity_frame = tk.Frame(sliders_frame, bg='#34495e')
+        opacity_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        ttk.Label(opacity_frame, text="Logo Opacity:", style='Info.TLabel').pack(anchor=tk.W)
+        self.opacity_scale = tk.Scale(opacity_frame, from_=10, to=100, orient=tk.HORIZONTAL,
+                                     variable=self.logo_opacity, bg='#34495e', fg='#ecf0f1')
+        self.opacity_scale.pack(fill=tk.X, pady=(5, 0))
+        
+    def create_position_settings_section(self, parent):
+        # Position Settings Frame
+        pos_frame = ttk.Frame(parent, style='Card.TFrame')
+        pos_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        ttk.Label(pos_frame, text="📍 Position Settings", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(pos_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        # Position selection
+        pos_section = tk.Frame(content, bg='#34495e')
+        pos_section.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(pos_section, text="Logo Position:", style='Info.TLabel').pack(anchor=tk.W)
+        
+        positions = ["top-left", "top-center", "top-right", 
+                    "center-left", "center", "center-right",
+                    "bottom-left", "bottom-center", "bottom-right"]
+        self.position_combo = ttk.Combobox(pos_section, textvariable=self.position,
+                                          values=positions, state="readonly", width=15,
+                                          style='Modern.TCombobox')
+        self.position_combo.pack(anchor=tk.W, pady=(5, 0))
+        
+        # Margin settings
+        margin_section = tk.Frame(content, bg='#34495e')
+        margin_section.pack(fill=tk.X)
+        
+        # X margin
+        x_margin_frame = tk.Frame(margin_section, bg='#34495e')
+        x_margin_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 20))
+        
+        ttk.Label(x_margin_frame, text="Horizontal Margin (px):", style='Info.TLabel').pack(anchor=tk.W)
+        self.margin_x_scale = tk.Scale(x_margin_frame, from_=0, to=100, orient=tk.HORIZONTAL,
+                                      variable=self.margin_x, bg='#34495e', fg='#ecf0f1')
+        self.margin_x_scale.pack(fill=tk.X, pady=(5, 0))
+        
+        # Y margin
+        y_margin_frame = tk.Frame(margin_section, bg='#34495e')
+        y_margin_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        ttk.Label(y_margin_frame, text="Vertical Margin (px):", style='Info.TLabel').pack(anchor=tk.W)
+        self.margin_y_scale = tk.Scale(y_margin_frame, from_=0, to=100, orient=tk.HORIZONTAL,
+                                      variable=self.margin_y, bg='#34495e', fg='#ecf0f1')
+        self.margin_y_scale.pack(fill=tk.X, pady=(5, 0))
+        
+    def create_preview_section(self, parent):
+        # Preview Frame
+        preview_frame = ttk.Frame(parent, style='Card.TFrame')
+        preview_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        ttk.Label(preview_frame, text="👁️ Logo Preview", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(preview_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        # Preview label
+        self.preview_label = tk.Label(content, text="Select a logo file to see preview",
+                                     bg='#ecf0f1', fg='#666', width=50, height=10,
+                                     relief='solid', bd=2)
+        self.preview_label.pack(pady=(5, 10))
+        
+        # Preview buttons
+        preview_buttons = tk.Frame(content, bg='#34495e')
+        preview_buttons.pack(fill=tk.X)
+        
+        ttk.Button(preview_buttons, text="🔄 Update Preview",
+                  command=self.update_logo_preview, style='Primary.TButton').pack(side=tk.LEFT)
+        
+        ttk.Button(preview_buttons, text="💾 Save Settings",
+                  command=self.save_settings, style='Primary.TButton').pack(side=tk.LEFT, padx=(10, 0))
+        
+    def create_batch_settings_section(self, parent):
+        # Batch Settings Frame
+        batch_frame = ttk.Frame(parent, style='Card.TFrame')
+        batch_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        ttk.Label(batch_frame, text="📦 Batch Settings", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(batch_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        # Batch rename option
+        rename_frame = tk.Frame(content, bg='#34495e')
+        rename_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.rename_check = tk.Checkbutton(rename_frame, text="Add prefix to output files",
+                                          variable=self.batch_rename, bg='#34495e',
+                                          fg='#ecf0f1', selectcolor='#34495e')
+        self.rename_check.pack(side=tk.LEFT)
+        
+        tk.Label(rename_frame, text="Prefix:", bg='#34495e', fg='#bdc3c7').pack(side=tk.LEFT, padx=(20, 5))
+        self.prefix_entry = tk.Entry(rename_frame, textvariable=self.prefix,
+                                    width=15, font=('Arial', 10), bg='#ecf0f1')
+        self.prefix_entry.pack(side=tk.LEFT)
+        
+        # Options
+        options_frame = tk.Frame(content, bg='#34495e')
+        options_frame.pack(fill=tk.X)
+        
+        self.aspect_check = tk.Checkbutton(options_frame, text="Maintain aspect ratio",
+                                          variable=self.maintain_aspect, bg='#34495e',
+                                          fg='#ecf0f1', selectcolor='#34495e')
+        self.aspect_check.pack(side=tk.LEFT)
+        
+    def create_process_section(self, parent):
+        # Process Frame
+        process_frame = ttk.Frame(parent, style='Card.TFrame')
+        process_frame.pack(fill=tk.X, pady=(0, 15), padx=10)
+        
+        ttk.Label(process_frame, text="🚀 Processing", style='Heading.TLabel').pack(
+            anchor=tk.W, padx=15, pady=(10, 5))
+        
+        content = tk.Frame(process_frame, bg='#34495e')
+        content.pack(fill=tk.X, padx=15, pady=(0, 15))
+        
+        # Progress bar
+        self.progress = ttk.Progressbar(content, mode='determinate', length=600)
+        self.progress.pack(fill=tk.X, pady=(0, 10))
+        
+        # Status label
+        self.status_label = tk.Label(content, text="Ready to process files",
+                                    font=('Arial', 10), bg='#34495e', fg='#ecf0f1')
+        self.status_label.pack(pady=(0, 10))
+        
+        # File count label
+        self.file_count_label = tk.Label(content, text="",
+                                        font=('Arial', 9), bg='#34495e', fg='#bdc3c7')
+        self.file_count_label.pack(pady=(0, 10))
+        
+        # Process button
+        self.process_btn = ttk.Button(content, text="🎬 Start Processing",
+                                     command=self.start_processing, style='Success.TButton')
+        self.process_btn.pack(pady=10)
+        
+    # File selection methods (Enhanced)
+    def browse_logo(self):
+        path = filedialog.askopenfilename(
+            title="Select Logo File",
+            filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp")]
+        )
+        if path:
+            self.logo_path.set(path)
+            self.update_logo_preview()
+            
+    def add_folder(self):
+        path = filedialog.askdirectory(title="Select Input Folder")
+        if path and path not in self.input_paths:
+            self.input_paths.append(path)
+            self.update_input_display()
+            
+    def add_files(self):
+        paths = filedialog.askopenfilenames(
+            title="Select Input Files",
+            filetypes=[
+                ("All Media", "*.png *.jpg *.jpeg *.gif *.bmp *.webp *.mp4 *.avi *.mov *.mkv"),
+                ("Image Files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("Video Files", "*.mp4 *.avi *.mov *.mkv")
+            ]
+        )
+        for path in paths:
+            if path not in self.input_paths:
+                self.input_paths.append(path)
+        self.update_input_display()
+        
+    def clear_inputs(self):
+        self.input_paths.clear()
+        self.update_input_display()
+        
+    def update_input_display(self):
+        if not self.input_paths:
+            self.input_display.set("No files/folders selected")
+            self.file_count_label.configure(text="")
+        else:
+            display_text = "Selected:\n"
+            file_count = 0
+            
+            for i, path in enumerate(self.input_paths):
+                if i < 3:  # Show first 3 items
+                    display_text += f"• {os.path.basename(path)}\n"
+                elif i == 3:
+                    display_text += f"... and {len(self.input_paths) - 3} more items"
+                    
+                # Count files
+                if os.path.isfile(path):
+                    file_count += 1
+                else:
+                    # Count files in folder
+                    for filename in os.listdir(path):
+                        filepath = os.path.join(path, filename)
+                        if os.path.isfile(filepath) and self.is_media_file(filename):
+                            file_count += 1
+            
+            self.input_display.set(display_text.strip())
+            self.file_count_label.configure(text=f"Estimated files to process: {file_count}")
+            
+    def is_media_file(self, filename):
+        return filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp',
+                                         '.mp4', '.avi', '.mov', '.mkv'))
+        
+    def browse_output(self):
+        path = filedialog.askdirectory(title="Select Output Directory")
+        if path:
+            self.output_dir.set(path)
+            
+    def pick_color(self):
+        color = colorchooser.askcolor(title="Select background color to remove",
+                                     initialcolor=self.bg_color.get())
+        if color[1]:
+            self.bg_color.set(color[1])
+            self.color_preview.configure(bg=color[1])
+            self.update_logo_preview()
+            
+    def update_logo_preview(self):
+        logo_path = self.logo_path.get()
+        if not logo_path or not os.path.exists(logo_path):
+            self.preview_label.configure(image='', text="Select a valid logo file")
+            return
+            
+        try:
+            # Load and process logo
+            img = Image.open(logo_path).convert("RGBA")
+            
+            # Remove background color
+            bg_color = self.hex_to_rgb(self.bg_color.get())
+            data = np.array(img)
+            r, g, b, a = data.T
+            
+            # Create mask for background pixels (with tolerance)
+            tolerance = self.tolerance.get()
+            background_pixels = (
+                (np.abs(r - bg_color[0]) < tolerance) & 
+                (np.abs(g - bg_color[1]) < tolerance) & 
+                (np.abs(b - bg_color[2]) < tolerance)
+            )
+            data[..., 3][background_pixels.T] = 0  # Set alpha to 0
+            
+            processed_logo = Image.fromarray(data)
+            
+            # Apply opacity
+            if self.logo_opacity.get() < 100:
+                alpha = processed_logo.split()[-1]
+                alpha = alpha.point(lambda x: int(x * (self.logo_opacity.get() / 100.0)))
+                processed_logo.putalpha(alpha)
+            
+            # Resize for preview (maintain aspect ratio)
+            preview_size = (200, 200)
+            processed_logo.thumbnail(preview_size, Image.Resampling.LANCZOS)
+            
+            # Convert to PhotoImage
+            self.logo_preview = ImageTk.PhotoImage(processed_logo)
+            self.preview_label.configure(image=self.logo_preview, text="")
+            
+        except Exception as e:
+            self.preview_label.configure(image='', text=f"Error loading logo:\n{str(e)}")
+            
+    def validate_inputs(self):
+        logo_path = self.logo_path.get()
+        output_dir = self.output_dir.get()
+        
+        if not logo_path:
+            messagebox.showerror("Error", "Please select a logo file")
+            return False
+            
+        if not os.path.exists(logo_path):
+            messagebox.showerror("Error", "Logo file does not exist")
+            return False
+            
+        if not self.input_paths:
+            messagebox.showerror("Error", "Please select input files or folders")
+            return False
+            
+        if not output_dir:
+            messagebox.showerror("Error", "Please select an output directory")
+            return False
+            
+        # Create output directory if it doesn't exist
+        os.makedirs(output_dir, exist_ok=True)
+        
+        return True
+        
+    def start_processing(self):
+        if not self.validate_inputs():
+            return
+            
+        if self.processing:
+            messagebox.showwarning("Warning", "Processing already in progress")
+            return
+            
+        # Start processing in a separate thread
+        self.processing = True
+        self.process_btn.configure(text="Processing...", state='disabled')
+        self.progress.configure(mode='determinate', value=0)
+        
+        processing_thread = threading.Thread(target=self.process_files)
+        processing_thread.daemon = True
+        processing_thread.start()
+        
+    def process_files(self):
+        try:
+            logo_path = self.logo_path.get()
+            output_dir = self.output_dir.get()
+            
+            # Update status
+            self.root.after(0, lambda: self.status_label.configure(text="Processing logo..."))
+            
+            # Process logo
+            logo = self.process_logo(logo_path)
+            
+            # Collect all files to process
+            files_to_process = []
+            
+            for input_path in self.input_paths:
+                if os.path.isfile(input_path):
+                    if self.is_media_file(input_path):
+                        files_to_process.append(input_path)
+                else:
+                    # Process folder
+                    for filename in os.listdir(input_path):
+                        filepath = os.path.join(input_path, filename)
+                        if os.path.isfile(filepath) and self.is_media_file(filename):
+                            files_to_process.append(filepath)
+            
+            total_files = len(files_to_process)
+            processed_files = 0
+            
+            # Process each file
+            for i, input_file in enumerate(files_to_process):
+                filename = os.path.basename(input_file)
+                self.root.after(0, lambda f=filename: 
+                              self.status_label.configure(text=f"Processing: {f}"))
+                
+                # Generate output filename
+                name, ext = os.path.splitext(filename)
+                if self.batch_rename.get():
+                    output_filename = f"{self.prefix.get()}{name}{ext}"
+                else:
+                    output_filename = filename
+                    
+                output_path = os.path.join(output_dir, output_filename)
+                
+                # Process based on file type
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp')):
+                    self.process_image(input_file, output_path, logo)
+                elif filename.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+                    self.process_video(input_file, output_path, logo)
+                
+                processed_files += 1
+                progress_value = (processed_files / total_files) * 100
+                self.root.after(0, lambda p=progress_value: self.progress.configure(value=p))
+                
+            # Processing completed
+            self.root.after(0, self.processing_completed)
+            
+        except Exception as e:
+            self.root.after(0, lambda: self.processing_error(str(e)))
+            
+    def processing_completed(self):
+        self.processing = False
+        self.progress.configure(value=100)
+        self.process_btn.configure(text="🎬 Start Processing", state='normal')
+        self.status_label.configure(text="✅ Processing completed successfully!")
+        messagebox.showinfo("Success", "All files have been processed successfully!")
+        
+    def processing_error(self, error_msg):
+        self.processing = False
+        self.progress.configure(value=0)
+        self.process_btn.configure(text="🎬 Start Processing", state='normal')
+        self.status_label.configure(text="❌ Processing failed")
+        messagebox.showerror("Error", f"Processing failed:\n{error_msg}")
+        
+    def process_logo(self, logo_path):
+        # Load and process logo
+        img = Image.open(logo_path).convert("RGBA")
+        bg_color = self.hex_to_rgb(self.bg_color.get())
+        
+        # Make background transparent with tolerance
+        data = np.array(img)
+        r, g, b, a = data.T
+        
+        tolerance = self.tolerance.get()
+        background_pixels = (
+            (np.abs(r - bg_color[0]) < tolerance) & 
+            (np.abs(g - bg_color[1]) < tolerance) & 
+            (np.abs(b - bg_color[2]) < tolerance)
+        )
+        data[..., 3][background_pixels.T] = 0  # Set alpha to 0
+        
+        processed_logo = Image.fromarray(data)
+        
+        # Apply opacity
+        if self.logo_opacity.get() < 100:
+            # Adjust alpha channel for opacity
+            alpha = processed_logo.split()[-1]
+            alpha = alpha.point(lambda x: int(x * (self.logo_opacity.get() / 100.0)))
+            processed_logo.putalpha(alpha)
+        
+        return processed_logo
+        
+    def process_image(self, input_path, output_path, logo):
+        try:
+            img = Image.open(input_path).convert("RGBA")
+            
+            # Calculate logo size based on image width
+            logo_size_ratio = self.logo_size.get() / 100.0
+            new_width = int(img.width * logo_size_ratio)
+            
+            if self.maintain_aspect.get():
+                # Maintain aspect ratio
+                aspect_ratio = logo.height / logo.width
+                new_height = int(new_width * aspect_ratio)
+            else:
+                new_height = int(img.height * logo_size_ratio)
+                
+            resized_logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Calculate position
+            x, y = self.calculate_position(img.width, img.height, 
+                                         resized_logo.width, resized_logo.height)
+            
+            # Paste logo
+            img.paste(resized_logo, (x, y), resized_logo)
+            
+            # Convert back to RGB if saving as JPEG
+            if output_path.lower().endswith(('.jpg', '.jpeg')):
+                img = img.convert("RGB")
+                
+            img.save(output_path, quality=95, optimize=True)
+            
+        except Exception as e:
+            print(f"Error processing image {os.path.basename(input_path)}: {str(e)}")
+            
+    def process_video(self, input_path, output_path, logo):
+        try:
+            cap = cv2.VideoCapture(input_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            
+            # Calculate logo size based on video width
+            logo_size_ratio = self.logo_size.get() / 100.0
+            new_width = int(width * logo_size_ratio)
+            
+            if self.maintain_aspect.get():
+                aspect_ratio = logo.height / logo.width
+                new_height = int(new_width * aspect_ratio)
+            else:
+                new_height = int(height * logo_size_ratio)
+                
+            resized_logo = logo.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            frame_count = 0
+            
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                # Convert frame to PIL Image
+                pil_frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                x, y = self.calculate_position(width, height, 
+                                             resized_logo.width, resized_logo.height)
+                pil_frame.paste(resized_logo, (x, y), resized_logo)
+                
+                # Convert back to OpenCV format
+                frame = cv2.cvtColor(np.array(pil_frame), cv2.COLOR_RGB2BGR)
+                out.write(frame)
+                
+                frame_count += 1
+                if frame_count % 30 == 0:  # Update every 30 frames
+                    progress = (frame_count / total_frames) * 100
+                    filename = os.path.basename(input_path)
+                    self.root.after(0, lambda f=filename, p=progress: 
+                                  self.status_label.configure(text=f"Processing video: {f} ({p:.1f}%)"))
+                
+            cap.release()
+            out.release()
+            
+        except Exception as e:
+            print(f"Error processing video {os.path.basename(input_path)}: {str(e)}")
+            
+    def calculate_position(self, img_w, img_h, logo_w, logo_h):
+        pos = self.position.get()
+        margin_x = self.margin_x.get()
+        margin_y = self.margin_y.get()
+        
+        positions = {
+            "top-left": (margin_x, margin_y),
+            "top-center": ((img_w - logo_w) // 2, margin_y),
+            "top-right": (img_w - logo_w - margin_x, margin_y),
+            "center-left": (margin_x, (img_h - logo_h) // 2),
+            "center": ((img_w - logo_w) // 2, (img_h - logo_h) // 2),
+            "center-right": (img_w - logo_w - margin_x, (img_h - logo_h) // 2),
+            "bottom-left": (margin_x, img_h - logo_h - margin_y),
+            "bottom-center": ((img_w - logo_w) // 2, img_h - logo_h - margin_y),
+            "bottom-right": (img_w - logo_w - margin_x, img_h - logo_h - margin_y)
+        }
+        
+        return positions.get(pos, positions["bottom-right"])
+            
+    def hex_to_rgb(self, hex_color):
+        hex_color = hex_color.lstrip('#')
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        
+    def save_settings(self):
+        settings = {
+            'position': self.position.get(),
+            'bg_color': self.bg_color.get(),
+            'logo_opacity': self.logo_opacity.get(),
+            'logo_size': self.logo_size.get(),
+            'margin_x': self.margin_x.get(),
+            'margin_y': self.margin_y.get(),
+            'tolerance': self.tolerance.get(),
+            'maintain_aspect': self.maintain_aspect.get(),
+            'batch_rename': self.batch_rename.get(),
+            'prefix': self.prefix.get()
+        }
+        
+        try:
+            with open(self.settings_file, 'w') as f:
+                json.dump(settings, f, indent=4)
+            messagebox.showinfo("Success", "Settings saved successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not save settings: {str(e)}")
+            
+    def load_settings(self):
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                    
+                # Apply settings
+                self.position.set(settings.get('position', 'bottom-right'))
+                self.bg_color.set(settings.get('bg_color', '#FFFFFF'))
+                self.logo_opacity.set(settings.get('logo_opacity', 100))
+                self.logo_size.set(settings.get('logo_size', 15))
+                self.margin_x.set(settings.get('margin_x', 20))
+                self.margin_y.set(settings.get('margin_y', 20))
+                self.tolerance.set(settings.get('tolerance', 30))
+                self.maintain_aspect.set(settings.get('maintain_aspect', True))
+                self.batch_rename.set(settings.get('batch_rename', False))
+                self.prefix.set(settings.get('prefix', 'watermarked_'))
+                
+                # Update color preview
+                self.color_preview.configure(bg=self.bg_color.get())
+                
+        except Exception as e:
+            print(f"Could not load settings: {str(e)}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EnhancedWatermarkApp(root)
+    root.mainloop()
