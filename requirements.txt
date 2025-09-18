@@ -17,7 +17,7 @@ eventlet # For event handling
 dj-database-url # For database URL parsing
 gunicorn # For running the Django app with Gunicorn
 whitenoise # For serving static files in production
-
+django-q
 #celery -A watrhc_automation worker --loglevel=info
 #celery -A watrhc_automation worker --loglevel=info --pool=solo
 #celery -A watrhc_automation beat --loglevel=info
