@@ -1,0 +1,268 @@
+#:kivy 2.0
+
+<DealCard>:
+    orientation: 'horizontal'
+    size_hint_y: None
+    height: dp(140)
+    padding: dp(10)
+    spacing: dp(10)
+    canvas.before:
+        Color:
+            rgba: 0.15, 0.15, 0.2, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(12)]
+    
+    # Product Image
+    BoxLayout:
+        size_hint_x: 0.25
+        AsyncImage:
+            source: root.image_url if root.image_url else ''
+            allow_stretch: True
+            keep_ratio: True
+    
+    # Product Info
+    BoxLayout:
+        orientation: 'vertical'
+        size_hint_x: 0.55
+        padding: [dp(5), 0]
+        spacing: dp(5)
+        
+        # Product Name
+        Label:
+            text: root.product_name[:60] + '...' if len(root.product_name) > 60 else root.product_name
+            size_hint_y: 0.4
+            text_size: self.size
+            halign: 'left'
+            valign: 'top'
+            font_size: dp(14)
+            bold: True
+            color: 1, 1, 1, 1
+        
+        # Price Info
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_y: 0.6
+            spacing: dp(3)
+            
+            # Original Price (strikethrough)
+            Label:
+                text: 'N{:,.0f}'.format(root.original_price)
+                size_hint_y: 0.33
+                font_size: dp(12)
+                color: 0.6, 0.6, 0.6, 1
+                halign: 'left'
+                text_size: self.size
+                strikethrough: True
+            
+            # Current Price
+            Label:
+                text: 'N{:,.0f}'.format(root.discounted_price)
+                size_hint_y: 0.33
+                font_size: dp(18)
+                bold: True
+                color: 0.2, 1, 0.2, 1
+                halign: 'left'
+                text_size: self.size
+            
+            # Discount Badge
+            Label:
+                text: '-{:.0f}% OFF'.format(root.discount_percent)
+                size_hint_y: 0.34
+                font_size: dp(16)
+                bold: True
+                color: 1, 0.8, 0, 1
+                halign: 'left'
+                text_size: self.size
+    
+    # Buy Button
+    Button:
+        text: 'Buy'
+        size_hint_x: 0.2
+        background_normal: ''
+        background_color: 1, 0.5, 0, 1
+        font_size: dp(14)
+        bold: True
+        on_press: root.open_product()
+        canvas.before:
+            Color:
+                rgba: self.background_color if self.state == 'normal' else (0.8, 0.4, 0, 1)
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(8)]
+
+
+<JumiaSearchScreen>:
+    orientation: 'vertical'
+    padding: dp(15)
+    spacing: dp(15)
+    canvas.before:
+        Color:
+            rgba: 0.08, 0.08, 0.12, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    
+    # Header
+    BoxLayout:
+        size_hint_y: None
+        height: dp(80)
+        orientation: 'vertical'
+        spacing: dp(5)
+        
+        Label:
+            text: 'Jumia Black Friday Deal Finder'
+            font_size: dp(24)
+            bold: True
+            color: 1, 0.8, 0, 1
+            size_hint_y: 0.7
+        
+        Label:
+            text: 'Find products at your desired discount rate'
+            font_size: dp(13)
+            color: 0.7, 0.7, 0.7, 1
+            size_hint_y: 0.3
+    
+    # Search Section
+    BoxLayout:
+        size_hint_y: None
+        height: dp(200)
+        orientation: 'vertical'
+        spacing: dp(12)
+        padding: dp(15)
+        canvas.before:
+            Color:
+                rgba: 0.12, 0.12, 0.18, 1
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [dp(15)]
+        
+        # Product Name Input
+        BoxLayout:
+            size_hint_y: None
+            height: dp(70)
+            orientation: 'vertical'
+            spacing: dp(8)
+            
+            Label:
+                text: 'What are you looking for?'
+                font_size: dp(14)
+                color: 1, 1, 1, 1
+                bold: True
+                size_hint_y: None
+                height: dp(25)
+                halign: 'left'
+                text_size: self.size
+            
+            BoxLayout:
+                size_hint_y: None
+                height: dp(45)
+                canvas.before:
+                    Color:
+                        rgba: 0.25, 0.25, 0.32, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+                
+                TextInput:
+                    id: product_input
+                    hint_text: 'e.g., iPhone, Samsung TV, Nike Shoes'
+                    multiline: False
+                    font_size: dp(16)
+                    padding: dp(15), dp(12)
+                    foreground_color: 1, 1, 1, 1
+                    background_color: 0, 0, 0, 0
+                    hint_text_color: 0.6, 0.6, 0.6, 1
+                    cursor_color: 1, 0.8, 0, 1
+                    cursor_width: dp(2)
+                    selection_color: 1, 0.8, 0, 0.4
+        
+        # Discount Input
+        BoxLayout:
+            size_hint_y: None
+            height: dp(70)
+            orientation: 'vertical'
+            spacing: dp(8)
+            
+            Label:
+                text: 'Minimum discount percentage (%)'
+                font_size: dp(14)
+                color: 1, 1, 1, 1
+                bold: True
+                size_hint_y: None
+                height: dp(25)
+                halign: 'left'
+                text_size: self.size
+            
+            BoxLayout:
+                size_hint_y: None
+                height: dp(45)
+                canvas.before:
+                    Color:
+                        rgba: 0.25, 0.25, 0.32, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(8)]
+                
+                TextInput:
+                    id: discount_input
+                    hint_text: 'e.g., 50, 70, 80'
+                    text: '50'
+                    multiline: False
+                    input_filter: 'float'
+                    font_size: dp(16)
+                    padding: dp(15), dp(12)
+                    foreground_color: 1, 1, 1, 1
+                    background_color: 0, 0, 0, 0
+                    hint_text_color: 0.6, 0.6, 0.6, 1
+                    cursor_color: 1, 0.8, 0, 1
+                    cursor_width: dp(2)
+                    selection_color: 1, 0.8, 0, 0.4
+        
+        # Search Button
+        Button:
+            text: 'SEARCH DEALS'
+            size_hint_y: None
+            height: dp(50)
+            font_size: dp(16)
+            bold: True
+            background_normal: ''
+            background_color: 0, 0, 0, 0
+            color: 1, 1, 1, 1
+            on_press: root.search_deals(product_input.text, discount_input.text)
+            canvas.before:
+                Color:
+                    rgba: (0.2, 0.7, 0.3, 1) if self.state == 'normal' else (0.15, 0.6, 0.25, 1)
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [dp(10)]
+    
+    # Status Label
+    Label:
+        id: status_label
+        text: 'Enter a product name and discount percentage, then click Search'
+        size_hint_y: None
+        height: dp(35)
+        font_size: dp(14)
+        color: 0.7, 0.7, 0.7, 1
+    
+    # Results Section
+    ScrollView:
+        do_scroll_x: False
+        bar_width: dp(10)
+        bar_color: 0.3, 0.3, 0.4, 1
+        bar_inactive_color: 0.2, 0.2, 0.3, 1
+        
+        GridLayout:
+            id: results_container
+            cols: 1
+            spacing: dp(12)
+            size_hint_y: None
+            height: self.minimum_height
+            padding: 0, dp(10)
